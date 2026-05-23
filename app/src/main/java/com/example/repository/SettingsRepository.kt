@@ -35,6 +35,31 @@ class SettingsRepository(private val context: Context) {
     private val EDITOR_KEYBOARD_FRIENDLY = booleanPreferencesKey("editor_keyboard_friendly")
     private val SYNTAX_MAPPINGS = stringPreferencesKey("syntax_mappings")
     
+    // Git Settings
+    private val GIT_PROVIDER_URL = stringPreferencesKey("git_provider_url")
+    private val GIT_USERNAME = stringPreferencesKey("git_username")
+    private val GIT_AUTHOR_NAME = stringPreferencesKey("git_author_name")
+    private val GIT_AUTHOR_EMAIL = stringPreferencesKey("git_author_email")
+    private val GIT_TOKEN_SET = booleanPreferencesKey("git_token_set")
+    
+    // Secured SharedPreferences for Token
+    private val encryptedPrefs by lazy {
+        try {
+            val masterKey = androidx.security.crypto.MasterKey.Builder(context)
+                .setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            androidx.security.crypto.EncryptedSharedPreferences.create(
+                context,
+                "secure_git_prefs",
+                masterKey,
+                androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            context.getSharedPreferences("fallback_git_prefs", Context.MODE_PRIVATE)
+        }
+    }
+
     // File Settings
     private val FILE_SHOW_HIDDEN = booleanPreferencesKey("file_show_hidden")
     private val FILE_SHOW_EXTENSIONS = booleanPreferencesKey("file_show_extensions")
@@ -308,5 +333,40 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs.remove(SYNTAX_MAPPINGS)
         }
+    }
+    
+    val gitAuthSettings: Flow<com.example.model.GitAuthSettings> = context.dataStore.data.map { prefs ->
+        com.example.model.GitAuthSettings(
+            providerUrl = prefs[GIT_PROVIDER_URL] ?: "https://github.com",
+            username = prefs[GIT_USERNAME] ?: "",
+            tokenSet = prefs[GIT_TOKEN_SET] ?: false,
+            authorName = prefs[GIT_AUTHOR_NAME] ?: "",
+            authorEmail = prefs[GIT_AUTHOR_EMAIL] ?: ""
+        )
+    }
+
+    suspend fun updateGitAuthSettings(settings: com.example.model.GitAuthSettings, token: String?) {
+        context.dataStore.edit { prefs ->
+            prefs[GIT_PROVIDER_URL] = settings.providerUrl
+            prefs[GIT_USERNAME] = settings.username
+            prefs[GIT_AUTHOR_NAME] = settings.authorName
+            prefs[GIT_AUTHOR_EMAIL] = settings.authorEmail
+            
+            if (token != null) {
+                if (token.isBlank()) {
+                    encryptedPrefs.edit().remove("git_token").apply()
+                    prefs[GIT_TOKEN_SET] = false
+                } else {
+                    encryptedPrefs.edit().putString("git_token", token).apply()
+                    prefs[GIT_TOKEN_SET] = true
+                }
+            } else {
+                prefs[GIT_TOKEN_SET] = settings.tokenSet
+            }
+        }
+    }
+    
+    fun getGitToken(): String? {
+        return encryptedPrefs.getString("git_token", null)
     }
 }

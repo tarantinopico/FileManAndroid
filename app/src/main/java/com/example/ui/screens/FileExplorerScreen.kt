@@ -28,6 +28,8 @@ import com.example.model.FileModel
 import com.example.viewmodel.ClipboardOperation
 import com.example.viewmodel.ClipboardState
 import com.example.viewmodel.FileManagerState
+import com.example.viewmodel.GitUiState
+import com.example.model.GitFileStatusType
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.graphics.Color
@@ -69,6 +71,7 @@ fun formatSize(sizeBytes: Long): String {
 @Composable
 fun FileExplorerScreen(
     state: FileManagerState,
+    gitState: GitUiState,
     favorites: List<FavoriteModel>,
     clipboard: ClipboardState?,
     fileSettings: com.example.model.FileSettings,
@@ -103,6 +106,12 @@ fun FileExplorerScreen(
     onBatchEncrypt: (String) -> Unit,
     onDecryptFile: (FileModel, String) -> Unit,
     onUnzipFile: (FileModel) -> Unit,
+    onGitInit: () -> Unit,
+    onGitAddAll: () -> Unit,
+    onGitAdd: (FileModel) -> Unit,
+    onGitCommit: (String) -> Unit,
+    onGitPush: () -> Unit,
+    onGitPull: () -> Unit,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier
 ) {
@@ -117,9 +126,11 @@ fun FileExplorerScreen(
     var decryptTarget by remember { mutableStateOf<FileModel?>(null) }
     var deleteTarget by remember { mutableStateOf<FileModel?>(null) }
     var batchDeleteConfirm by remember { mutableStateOf(false) }
+    var showCommitDialog by remember { mutableStateOf(false) }
     
     val isMultiSelect = state.selectedFiles.isNotEmpty()
     val isSearchMode = state.searchQuery.isNotEmpty()
+    val isRepo = gitState.repoStatus.isRepo
 
     var showSearch by remember { mutableStateOf(false) }
 
@@ -221,7 +232,29 @@ fun FileExplorerScreen(
                 )
             } else {
                 CenterAlignedTopAppBar(
-                    title = { Text(state.breadcrumbs.lastOrNull()?.name ?: "Soubory", style = MaterialTheme.typography.titleMedium) },
+                    title = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(state.breadcrumbs.lastOrNull()?.name ?: "Soubory", style = MaterialTheme.typography.titleMedium)
+                            if (isRepo) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            color = if (gitState.repoStatus.hasUncommittedChanges) Color(0xFFE6A23C).copy(alpha = 0.2f) else MaterialTheme.colorScheme.primaryContainer,
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = gitState.repoStatus.branchName ?: "Repo",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (gitState.repoStatus.hasUncommittedChanges) Color(0xFFE6A23C) else MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    },
                     navigationIcon = {
                         if (state.parentPath != null) {
                             IconButton(onClick = onNavigateUp) {
@@ -264,6 +297,42 @@ fun FileExplorerScreen(
                                     onClick = { showCreateMenu = false; showCreateFileDialog = true },
                                     leadingIcon = { Icon(Icons.Rounded.InsertDriveFile, null) }
                                 )
+                            }
+                        }
+                        Box {
+                            var moreExpanded by remember { mutableStateOf(false) }
+                            IconButton(onClick = { moreExpanded = true }) {
+                                Icon(Icons.Rounded.MoreVert, contentDescription = "Víc")
+                            }
+                            DropdownMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }) {
+                                if (isRepo) {
+                                    DropdownMenuItem(
+                                        text = { Text("Git: Commit") },
+                                        onClick = { moreExpanded = false; showCommitDialog = true },
+                                        leadingIcon = { Icon(Icons.Rounded.Commit, null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Git: Add All") },
+                                        onClick = { moreExpanded = false; onGitAddAll() },
+                                        leadingIcon = { Icon(Icons.Rounded.LibraryAdd, null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Git: Push") },
+                                        onClick = { moreExpanded = false; onGitPush() },
+                                        leadingIcon = { Icon(Icons.Rounded.CloudUpload, null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Git: Pull") },
+                                        onClick = { moreExpanded = false; onGitPull() },
+                                        leadingIcon = { Icon(Icons.Rounded.CloudDownload, null) }
+                                    )
+                                } else {
+                                    DropdownMenuItem(
+                                        text = { Text("Inicializovat Git repo") },
+                                        onClick = { moreExpanded = false; onGitInit() },
+                                        leadingIcon = { Icon(Icons.Rounded.Code, null) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -347,6 +416,11 @@ fun FileExplorerScreen(
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(filesToShow, key = { it.path }) { file ->
                             val selected = state.selectedFiles.contains(file.path)
+                            val gitStatus = gitState.repoStatus.fileStatuses.find { 
+                                val relative = java.io.File(file.path).relativeTo(java.io.File(state.currentPath)).path.replace("\\", "/")
+                                it.path == relative || (file.isDirectory && it.path.startsWith("$relative/"))
+                            }
+                            
                             FileListItem(
                                 file = file,
                                 isFavorite = favorites.any { it.path == file.path },
@@ -356,6 +430,7 @@ fun FileExplorerScreen(
                                 showExtensions = fileSettings.showFileExtensions,
                                 syntaxMappings = syntaxMappings,
                                 appPreferences = appPreferences,
+                                gitStatus = gitStatus?.status,
                                 onClick = {
                                     if (isMultiSelect) {
                                         onToggleSelection(file.path)
@@ -391,7 +466,8 @@ fun FileExplorerScreen(
                                 },
                                 onShowInfo = { showInfoDialogFor = file },
                                 onUnzip = { onUnzipFile(file) },
-                                onDecrypt = { decryptTarget = file }
+                                onDecrypt = { decryptTarget = file },
+                                onGitAdd = { onGitAdd(file) }
                             )
                         }
                         item {
@@ -413,6 +489,10 @@ fun FileExplorerScreen(
 
     if (showCreateFileDialog) {
         InputDialog(title = "Nový soubor", initialValue = "", onConfirm = { onCreateFile(it); showCreateFileDialog = false }, onDismiss = { showCreateFileDialog = false })
+    }
+    
+    if (showCommitDialog) {
+        InputDialog(title = "Git Commit", initialValue = "", onConfirm = { onGitCommit(it); showCommitDialog = false }, onDismiss = { showCommitDialog = false })
     }
     
     if (showZipDialog) {
@@ -550,7 +630,9 @@ fun FileListItem(
     onToggleFavorite: () -> Unit,
     onShowInfo: () -> Unit,
     onUnzip: () -> Unit,
-    onDecrypt: () -> Unit
+    onDecrypt: () -> Unit,
+    onGitAdd: () -> Unit = {},
+    gitStatus: GitFileStatusType? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -655,6 +737,38 @@ fun FileListItem(
                         )
                     }
                 }
+                
+                if (gitStatus != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    val gitColor = when(gitStatus) {
+                        GitFileStatusType.MODIFIED -> Color(0xFFE6A23C)
+                        GitFileStatusType.ADDED, GitFileStatusType.UNTRACKED -> Color(0xFF67C23A)
+                        GitFileStatusType.REMOVED -> Color(0xFFF56C6C)
+                        GitFileStatusType.CONFLICTING -> Color(0xFFF56C6C)
+                        GitFileStatusType.UNCOMMITTED -> Color(0xFF909399)
+                    }
+                    val gitLabel = when(gitStatus) {
+                        GitFileStatusType.MODIFIED -> "M"
+                        GitFileStatusType.ADDED -> "A"
+                        GitFileStatusType.UNTRACKED -> "U"
+                        GitFileStatusType.REMOVED -> "D"
+                        GitFileStatusType.CONFLICTING -> "C"
+                        else -> "?"
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(gitColor.copy(alpha = 0.2f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = gitLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = gitColor.copy(alpha = 0.8f),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+                }
             }
             val dateStr = format.format(Date(file.lastModified))
             
@@ -687,6 +801,13 @@ fun FileListItem(
                     expanded = expanded,
                     onDismissRequest = { expanded = false }
                 ) {
+                    if (gitStatus == GitFileStatusType.UNTRACKED || gitStatus == GitFileStatusType.MODIFIED || gitStatus == GitFileStatusType.CONFLICTING) {
+                        DropdownMenuItem(
+                            text = { Text("Git: Add") },
+                            onClick = { expanded = false; onGitAdd() },
+                            leadingIcon = { Icon(Icons.Rounded.AddBox, null) }
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text(if (isFavorite) "Odebrat z oblíbených" else "Přidat do oblíbených") },
                         onClick = { expanded = false; onToggleFavorite() },

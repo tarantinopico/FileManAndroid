@@ -98,3 +98,29 @@ data class AppPreferences(
     val showFreeSpace: Boolean = true,
     val compactListMode: Boolean = false
 )
+
+enum class GitFileStatusType {
+    UNTRACKED, MODIFIED, ADDED, REMOVED, CONFLICTING, UNCOMMITTED
+}
+
+data class GitFileStatus(
+    val path: String,
+    val status: GitFileStatusType
+)
+
+data class GitRepoStatus(
+    val isRepo: Boolean,
+    val branchName: String? = null,
+    val hasUncommittedChanges: Boolean = false,
+    val fileStatuses: List<GitFileStatus> = emptyList(),
+    val rootPath: String? = null,
+    val remotes: List<String> = emptyList()
+)
+
+data class GitAuthSettings(
+    val providerUrl: String = "https://github.com",
+    val username: String = "",
+    val tokenSet: Boolean = false,
+    val authorName: String = "",
+    val authorEmail: String = ""
+)

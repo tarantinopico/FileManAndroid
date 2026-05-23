@@ -22,15 +22,19 @@ import com.example.viewmodel.ClipboardOperation
 import com.example.viewmodel.FileManagerViewModel
 import kotlinx.coroutines.launch
 
+import com.example.viewmodel.GitViewModel
+
 @Composable
 fun MainScreen(
     viewModel: FileManagerViewModel,
+    gitViewModel: GitViewModel,
     onNavigateToSettings: () -> Unit,
     onNavigateToEditor: (String, String) -> Unit,
     onNavigateToImage: (String, String) -> Unit
 ) {
     val hasPermission by viewModel.hasPermission.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val gitUiState by gitViewModel.uiState.collectAsStateWithLifecycle()
     val storageVolumes by viewModel.storageVolumes.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle(initialValue = emptyList())
     val clipboard by viewModel.clipboard.collectAsStateWithLifecycle()
@@ -53,6 +57,25 @@ fun MainScreen(
                     )
                 }
             }
+        }
+    }
+    
+    LaunchedEffect(Unit) {
+        gitViewModel.uiEvents.collect { event ->
+            when (event) {
+                is com.example.viewmodel.UiEvent.ShowToast -> {
+                    snackbarHostState.showSnackbar(
+                        message = event.message,
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(uiState.currentPath) {
+        if (uiState.currentPath.isNotEmpty()) {
+            gitViewModel.loadGitStatus(uiState.currentPath)
         }
     }
 
@@ -244,6 +267,7 @@ fun MainScreen(
         ) {
             FileExplorerScreen(
                 state = uiState,
+                gitState = gitUiState,
                 favorites = favorites,
                 clipboard = clipboard,
                 fileSettings = fileSettings,
@@ -290,6 +314,13 @@ fun MainScreen(
                 onBatchEncrypt = { password -> viewModel.encryptSelected(password) },
                 onDecryptFile = { file, password -> viewModel.decryptSelected(file, password) },
                 onUnzipFile = { file -> viewModel.unzipFile(file) },
+                // Git Actions
+                onGitInit = { gitViewModel.initRepository(uiState.currentPath) },
+                onGitAddAll = { gitViewModel.addAll(uiState.currentPath) },
+                onGitAdd = { file -> gitViewModel.addFile(uiState.currentPath, file.path) },
+                onGitCommit = { message -> gitViewModel.commit(uiState.currentPath, message) },
+                onGitPush = { gitViewModel.push(uiState.currentPath) },
+                onGitPull = { gitViewModel.pull(uiState.currentPath) },
                 snackbarHostState = snackbarHostState
             )
         }

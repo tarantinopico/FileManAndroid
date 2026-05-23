@@ -70,6 +70,7 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         initialValue = com.example.model.FileSettings()
     )
     val favorites = settingsRepository.favorites
+    val gitAuthSettings = settingsRepository.gitAuthSettings
     val appPreferences = settingsRepository.appPreferences.stateIn(
         scope = viewModelScope,
         started = kotlinx.coroutines.flow.SharingStarted.Eagerly,
@@ -104,6 +105,12 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun updateAppPreferences(prefs: com.example.model.AppPreferences) {
         viewModelScope.launch {
             settingsRepository.updateAppPreferences(prefs)
+        }
+    }
+    
+    fun updateGitAuthSettings(settings: com.example.model.GitAuthSettings, token: String? = null) {
+        viewModelScope.launch {
+            settingsRepository.updateGitAuthSettings(settings, token)
         }
     }
 

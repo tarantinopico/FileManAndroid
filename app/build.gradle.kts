@@ -61,4 +61,9 @@ dependencies {
     
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
+    
+    // JGit for Git integration
+    implementation("org.eclipse.jgit:org.eclipse.jgit:6.8.0.202311291450-r")
+    // Android Security library for encrypted storage of tokens
+    implementation("androidx.security:security-crypto-ktx:1.1.0-alpha06")
 }

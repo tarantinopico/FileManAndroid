@@ -144,6 +144,85 @@ fun SettingsScreen(
                     viewModel.updateEditorSettings(editorSettings.copy(editorToolbarEnabled = it))
                 }
             }
+            
+            var showGitAuthDialog by remember { mutableStateOf(false) }
+            val gitAuthSettings by viewModel.gitAuthSettings.collectAsStateWithLifecycle(initialValue = com.example.model.GitAuthSettings())
+            
+            SettingsCategoryTitle("Git Integrace")
+            SettingsCard {
+                SettingsListItem(
+                    headline = "Git Konfigurace", 
+                    supporting = "Jméno, Email, Token", 
+                    icon = Icons.Rounded.Settings, 
+                    onClick = { showGitAuthDialog = true }
+                )
+            }
+            
+            if (showGitAuthDialog) {
+                var name by remember { mutableStateOf(gitAuthSettings.username) }
+                var authorEmail by remember { mutableStateOf(gitAuthSettings.authorEmail) }
+                var authorName by remember { mutableStateOf(gitAuthSettings.authorName) }
+                var token by remember { mutableStateOf("") }
+                var url by remember { mutableStateOf(gitAuthSettings.providerUrl) }
+                
+                AlertDialog(
+                    onDismissRequest = { showGitAuthDialog = false },
+                    title = { Text("Git Autorizace") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+                            OutlinedTextField(
+                                value = url,
+                                onValueChange = { url = it },
+                                label = { Text("Provider URL (např. https://github.com)") },
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = name,
+                                onValueChange = { name = it },
+                                label = { Text("Přihlašovací jméno (Username)") },
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = authorName,
+                                onValueChange = { authorName = it },
+                                label = { Text("Jméno autora komitů") },
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = authorEmail,
+                                onValueChange = { authorEmail = it },
+                                label = { Text("E-mail autora komitů") },
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = token,
+                                onValueChange = { token = it },
+                                label = { Text(if (gitAuthSettings.tokenSet) "Uložen (Zadat nový pro změnu / prázdný pro zachování)" else "Osobní přístupový token") },
+                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                singleLine = true
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            viewModel.updateGitAuthSettings(
+                                com.example.model.GitAuthSettings(
+                                    providerUrl = url,
+                                    username = name,
+                                    authorName = authorName,
+                                    authorEmail = authorEmail,
+                                    tokenSet = if (token.isNotBlank()) true else gitAuthSettings.tokenSet
+                                ),
+                                if (token.isNotBlank()) token else null
+                            )
+                            showGitAuthDialog = false
+                        }) { Text("Uložit") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showGitAuthDialog = false }) { Text("Zrušit") }
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
             SettingsCard {

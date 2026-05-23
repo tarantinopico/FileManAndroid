@@ -46,8 +46,10 @@ fun AppNavigation(viewModel: FileManagerViewModel) {
         popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300)) + androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(300)) { it / 8 } }
     ) {
         composable("main") {
+            val gitViewModel: com.example.viewmodel.GitViewModel = viewModel()
             MainScreen(
                 viewModel = viewModel,
+                gitViewModel = gitViewModel,
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToEditor = { path, name ->
                     val encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
