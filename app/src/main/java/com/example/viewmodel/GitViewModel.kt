@@ -131,6 +131,42 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setRemote(path: String, remoteUrl: String) {
+        viewModelScope.launch {
+            if (remoteUrl.isBlank()) {
+                _uiEvents.emit(UiEvent.ShowToast("Remote URL nesmí být prázdná"))
+                return@launch
+            }
+            _uiState.update { it.copy(isActionLoading = true) }
+            val root = _uiState.value.repoStatus.rootPath ?: path
+            val result = gitRepository.setRemoteUrl(root, remoteUrl)
+            handleResult(result, path, "Remote URL nastaveno na: $remoteUrl")
+        }
+    }
+
+    fun createAndLinkGithubRepo(path: String, name: String, isPrivate: Boolean) {
+        viewModelScope.launch {
+            if (name.isBlank()) {
+                _uiEvents.emit(UiEvent.ShowToast("Název repozitáře nesmí být prázdný"))
+                return@launch
+            }
+            _uiState.update { it.copy(isActionLoading = true) }
+            val result = gitRepository.createGithubRepo(name, isPrivate)
+            result.onSuccess { cloneUrl ->
+                val root = _uiState.value.repoStatus.rootPath ?: path
+                val setRemoteResult = gitRepository.setRemoteUrl(root, cloneUrl)
+                if (setRemoteResult is FileOperationResult.Success) {
+                    handleResult(setRemoteResult, path, "Repozitář úspěšně založen na GitHubu a propojen")
+                } else {
+                    handleResult(setRemoteResult, path, "Úspěšně založeno, ale chyba při propojování remote")
+                }
+            }.onFailure { error ->
+                _uiState.update { it.copy(isActionLoading = false) }
+                _uiEvents.emit(UiEvent.ShowToast("Chyba při zakládání repozitáře: ${error.message}"))
+            }
+        }
+    }
+
     private suspend fun handleResult(result: FileOperationResult, path: String, successMsg: String) {
         _uiState.update { it.copy(isActionLoading = false) }
         when (result) {

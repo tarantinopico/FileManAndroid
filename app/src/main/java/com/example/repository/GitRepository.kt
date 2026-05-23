@@ -13,8 +13,12 @@ import org.eclipse.jgit.api.ListBranchCommand
 import org.eclipse.jgit.lib.RepositoryCache
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
+import org.eclipse.jgit.transport.URIish
 import org.eclipse.jgit.util.FS
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONObject
 
 class GitRepository(private val settingsRepository: SettingsRepository) {
 
@@ -135,7 +139,15 @@ class GitRepository(private val settingsRepository: SettingsRepository) {
             
             val repo = FileRepositoryBuilder().findGitDir(File(path)).build()
             val git = Git(repo)
-            git.push().setCredentialsProvider(credentials).call()
+            val remotes = repo.config.getSubsections("remote").toList()
+            if (remotes.isEmpty()) {
+                git.close()
+                repo.close()
+                return@withContext FileOperationResult.Error("Žádný vzdálený repozitář není nastaven (origin not found). Založte nebo připojte vzdálený repozitář.")
+            }
+            
+            val branch = repo.branch ?: "master"
+            git.push().setRemote("origin").add(branch).setCredentialsProvider(credentials).call()
             git.close()
             repo.close()
             FileOperationResult.Success
@@ -149,8 +161,13 @@ class GitRepository(private val settingsRepository: SettingsRepository) {
             val credentials = getCredentialsProvider() ?: return@withContext FileOperationResult.Error("Nenastaven autentizační token. Prosím nastavte jej v Nastavení.")
             
             val repo = FileRepositoryBuilder().findGitDir(File(path)).build()
+            val remotes = repo.config.getSubsections("remote").toList()
+            if (remotes.isEmpty()) {
+                repo.close()
+                return@withContext FileOperationResult.Error("Žádný vzdálený repozitář není nastaven (origin not found).")
+            }
             val git = Git(repo)
-            val result = git.pull().setCredentialsProvider(credentials).call()
+            val result = git.pull().setCredentialsProvider(credentials).setRemote("origin").call()
             git.close()
             repo.close()
             if (result.isSuccessful) {
@@ -174,6 +191,57 @@ class GitRepository(private val settingsRepository: SettingsRepository) {
             true
         } catch (e: Exception) {
             false
+        }
+    }
+
+    suspend fun setRemoteUrl(path: String, remoteUrl: String): FileOperationResult = withContext(Dispatchers.IO) {
+        try {
+            val repo = FileRepositoryBuilder().findGitDir(File(path)).build()
+            val git = Git(repo)
+            
+            val config = repo.config
+            config.setString("remote", "origin", "url", remoteUrl)
+            config.setString("remote", "origin", "fetch", "+refs/heads/*:refs/remotes/origin/*")
+            config.save()
+            
+            git.close()
+            repo.close()
+            FileOperationResult.Success
+        } catch (e: Exception) {
+            FileOperationResult.Error(e.message ?: "Chyba při nastavování remote URL")
+        }
+    }
+    
+    suspend fun createGithubRepo(name: String, isPrivate: Boolean, description: String = ""): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val token = settingsRepository.getGitToken() ?: return@withContext Result.failure(Exception("Not configured"))
+            val url = URL("https://api.github.com/user/repos")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Authorization", "Bearer $token")
+            connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.doOutput = true
+            
+            val json = org.json.JSONObject()
+            json.put("name", name)
+            json.put("private", isPrivate)
+            json.put("description", description)
+            
+            connection.outputStream.write(json.toString().toByteArray(Charsets.UTF_8))
+            
+            val responseCode = connection.responseCode
+            if (responseCode == 201) {
+                val response = connection.inputStream.bufferedReader().readText()
+                val responseObj = org.json.JSONObject(response)
+                val cloneUrl = responseObj.getString("clone_url")
+                Result.success(cloneUrl)
+            } else {
+                val error = connection.errorStream?.bufferedReader()?.readText() ?: ""
+                Result.failure(Exception("Github API error: $responseCode $error"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Network error"))
         }
     }
 }

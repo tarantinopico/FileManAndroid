@@ -112,6 +112,8 @@ fun FileExplorerScreen(
     onGitCommit: (String) -> Unit,
     onGitPush: () -> Unit,
     onGitPull: () -> Unit,
+    onGitSetRemote: (String) -> Unit,
+    onGitCreateGithubRepo: (String, Boolean) -> Unit,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier
 ) {
@@ -127,6 +129,8 @@ fun FileExplorerScreen(
     var deleteTarget by remember { mutableStateOf<FileModel?>(null) }
     var batchDeleteConfirm by remember { mutableStateOf(false) }
     var showCommitDialog by remember { mutableStateOf(false) }
+    var showSetRemoteDialog by remember { mutableStateOf(false) }
+    var showGithubRepoDialog by remember { mutableStateOf(false) }
     
     val isMultiSelect = state.selectedFiles.isNotEmpty()
     val isSearchMode = state.searchQuery.isNotEmpty()
@@ -326,6 +330,16 @@ fun FileExplorerScreen(
                                         onClick = { moreExpanded = false; onGitPull() },
                                         leadingIcon = { Icon(Icons.Rounded.CloudDownload, null) }
                                     )
+                                    DropdownMenuItem(
+                                        text = { Text("Git: Nastavit Remote") },
+                                        onClick = { moreExpanded = false; showSetRemoteDialog = true },
+                                        leadingIcon = { Icon(Icons.Rounded.Link, null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Git: Založit na GitHubu") },
+                                        onClick = { moreExpanded = false; showGithubRepoDialog = true },
+                                        leadingIcon = { Icon(Icons.Rounded.CloudCircle, null) }
+                                    )
                                 } else {
                                     DropdownMenuItem(
                                         text = { Text("Inicializovat Git repo") },
@@ -493,6 +507,40 @@ fun FileExplorerScreen(
     
     if (showCommitDialog) {
         InputDialog(title = "Git Commit", initialValue = "", onConfirm = { onGitCommit(it); showCommitDialog = false }, onDismiss = { showCommitDialog = false })
+    }
+    
+    if (showSetRemoteDialog) {
+        InputDialog(title = "Nastavit Remote URL", initialValue = "https://github.com/", onConfirm = { onGitSetRemote(it); showSetRemoteDialog = false }, onDismiss = { showSetRemoteDialog = false })
+    }
+    
+    if (showGithubRepoDialog) {
+        var repoName by remember { mutableStateOf(state.breadcrumbs.lastOrNull()?.name ?: "NoveRepo") }
+        var isPrivate by remember { mutableStateOf(true) }
+        AlertDialog(
+            onDismissRequest = { showGithubRepoDialog = false },
+            title = { Text("Založit na GitHubu") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = repoName,
+                        onValueChange = { repoName = it },
+                        label = { Text("Název repozitáře") },
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = isPrivate, onCheckedChange = { isPrivate = it })
+                        Text("Soukromý repozitář")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onGitCreateGithubRepo(repoName, isPrivate); showGithubRepoDialog = false }) { Text("Vytvořit a propojit") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGithubRepoDialog = false }) { Text("Zrušit") }
+            }
+        )
     }
     
     if (showZipDialog) {

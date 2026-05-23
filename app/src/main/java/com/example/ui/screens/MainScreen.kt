@@ -321,6 +321,8 @@ fun MainScreen(
                 onGitCommit = { message -> gitViewModel.commit(uiState.currentPath, message) },
                 onGitPush = { gitViewModel.push(uiState.currentPath) },
                 onGitPull = { gitViewModel.pull(uiState.currentPath) },
+                onGitSetRemote = { remote -> gitViewModel.setRemote(uiState.currentPath, remote) },
+                onGitCreateGithubRepo = { name, isPrivate -> gitViewModel.createAndLinkGithubRepo(uiState.currentPath, name, isPrivate) },
                 snackbarHostState = snackbarHostState
             )
         }
