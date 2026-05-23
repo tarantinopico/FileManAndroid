@@ -14,8 +14,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import java.io.File
+import androidx.compose.material.icons.rounded.BrokenImage
+import coil.compose.SubcomposeAsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,19 +66,40 @@ fun ImageViewerScreen(
                 },
             contentAlignment = Alignment.Center
         ) {
-            AsyncImage(
-                model = File(imagePath),
-                contentDescription = imageName,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(
-                        scaleX = scale,
-                        scaleY = scale,
-                        translationX = offsetX,
-                        translationY = offsetY
-                    )
-            )
+            val file = File(imagePath)
+            if (!file.exists() || !file.canRead()) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Rounded.BrokenImage, contentDescription = "Chyba načítání", modifier = Modifier.size(64.dp), tint = Color.Gray)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Obrázek nebylo možné načíst", color = Color.Gray)
+                }
+            } else {
+                SubcomposeAsyncImage(
+                    model = file,
+                    contentDescription = imageName,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offsetX,
+                            translationY = offsetY
+                        ),
+                    loading = {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color.White)
+                        }
+                    },
+                    error = {
+                        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Icon(Icons.Rounded.BrokenImage, contentDescription = "Soubor je chráněn nebo poškozen", modifier = Modifier.size(64.dp), tint = Color.Gray)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Obrázek je pravděpodobně poškozen", color = Color.Gray)
+                        }
+                    }
+                )
+            }
         }
     }
 }

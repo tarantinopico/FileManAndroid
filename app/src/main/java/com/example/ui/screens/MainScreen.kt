@@ -56,6 +56,38 @@ fun MainScreen(
     }
 
     var showFavoriteEditDialogFor by remember { mutableStateOf<com.example.model.FavoriteModel?>(null) }
+    var unsupportedFileFor by remember { mutableStateOf<FileModel?>(null) }
+
+    if (unsupportedFileFor != null) {
+        val file = unsupportedFileFor!!
+        AlertDialog(
+            onDismissRequest = { unsupportedFileFor = null },
+            icon = { Icon(Icons.Rounded.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Nelze otevřít soubor") },
+            text = { 
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Nepodařilo se najít vhodnou aplikaci pro otevření tohoto souboru. Můžete soubor zkusit přečíst jako text, nebo zkopírovat jeho cestu.")
+                    Text("Soubor: ${file.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    unsupportedFileFor = null
+                    onNavigateToEditor(file.path, file.name)
+                }) { Text("Zkusit jako text") }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboardManager.setPrimaryClip(android.content.ClipData.newPlainText("Cesta", file.path))
+                        android.widget.Toast.makeText(context, "Cesta zkopírována", android.widget.Toast.LENGTH_SHORT).show()
+                    }) { Text("Kopírovat cestu") }
+                    TextButton(onClick = { unsupportedFileFor = null }) { Text("Zrušit") }
+                }
+            }
+        )
+    }
 
     if (showFavoriteEditDialogFor != null) {
         val fav = showFavoriteEditDialogFor!!
@@ -160,12 +192,16 @@ fun MainScreen(
                         setDataAndType(uri, mimeType)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(Intent.createChooser(intent, "Otevřít pomocí"))
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        unsupportedFileFor = file
+                    } catch (e: Exception) {
+                        unsupportedFileFor = file
+                    }
                 }
             } catch (e: Exception) {
-                scope.launch {
-                    snackbarHostState.showSnackbar("Nelze otevřít soubor")
-                }
+                unsupportedFileFor = file
             }
         }
 

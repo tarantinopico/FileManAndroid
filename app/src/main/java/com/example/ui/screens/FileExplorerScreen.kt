@@ -52,6 +52,7 @@ fun formatSize(sizeBytes: Long): String {
     if (sizeBytes <= 0) return "0 B"
     val units = arrayOf("B", "KB", "MB", "GB", "TB")
     val digitGroups = (Math.log10(sizeBytes.toDouble()) / Math.log10(1024.0)).toInt()
+    if (digitGroups == 0) return "$sizeBytes B"
     return String.format(Locale.getDefault(), "%.1f %s", sizeBytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
 }
 
@@ -294,8 +295,24 @@ fun FileExplorerScreen(
                 val filesToShow = if (state.searchQuery.isEmpty()) state.files else state.files.filter { it.name.contains(state.searchQuery, ignoreCase = true) }
                 
                 if (filesToShow.isEmpty() && !state.isLoading) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(if (state.searchQuery.isNotEmpty()) "Žádné výsledky" else "Složka je prázdná", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(
+                        Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val isSearch = state.searchQuery.isNotEmpty()
+                        Icon(
+                            if (isSearch) Icons.Rounded.SearchOff else Icons.Rounded.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            if (isSearch) "Žádné výsledky pro \"${state.searchQuery}\"" else "Složka je prázdná",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 } else {
                     val format = remember { SimpleDateFormat("dd. MM. yyyy HH:mm", Locale.getDefault()) }
@@ -404,7 +421,7 @@ fun FileExplorerScreen(
         
         AlertDialog(
             onDismissRequest = { showInfoDialogFor = null },
-            icon = { Icon(Icons.Rounded.Info, contentDescription = null) },
+            icon = { Icon(getIconForFile(file), contentDescription = null, modifier = Modifier.size(32.dp)) },
             title = { Text("Informace o souboru", style = MaterialTheme.typography.titleLarge) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
@@ -435,12 +452,21 @@ fun FileExplorerScreen(
             confirmButton = { TextButton(onClick = { showInfoDialogFor = null }) { Text("Zavřít") } },
             dismissButton = {
                 val context = androidx.compose.ui.platform.LocalContext.current
-                TextButton(onClick = {
-                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Cesta", file.path))
-                    android.widget.Toast.makeText(context, "Cesta zkopírována", android.widget.Toast.LENGTH_SHORT).show()
-                }) {
-                    Text("Kopírovat cestu")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Název", file.name))
+                        android.widget.Toast.makeText(context, "Název zkopírován", android.widget.Toast.LENGTH_SHORT).show()
+                    }) {
+                        Text("Kopírovat název")
+                    }
+                    TextButton(onClick = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Cesta", file.path))
+                        android.widget.Toast.makeText(context, "Cesta zkopírována", android.widget.Toast.LENGTH_SHORT).show()
+                    }) {
+                        Text("Kopírovat cestu")
+                    }
                 }
             }
         )
