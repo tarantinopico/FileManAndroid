@@ -70,8 +70,11 @@ class FileRepository {
             if (!file.exists() || !file.isFile) {
                 return@withContext Result.failure(Exception("Neplatný soubor"))
             }
-            if (file.length() > 5 * 1024 * 1024) { // 5MB limit
-                return@withContext Result.failure(Exception("Soubor je příliš velký"))
+            if (!file.canRead()) {
+                return@withContext Result.failure(Exception("Nemáte oprávnění ke čtení tohoto souboru"))
+            }
+            if (file.length() > 2 * 1024 * 1024) { // 2MB limit for text editors to prevent severe OOM/lag
+                return@withContext Result.failure(Exception("Soubor je příliš velký pro integrovaný editor (max 2MB)"))
             }
             Result.success(file.readText())
         } catch (e: Exception) {
