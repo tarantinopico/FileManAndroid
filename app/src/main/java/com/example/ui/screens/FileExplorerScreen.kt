@@ -392,7 +392,7 @@ fun FileListItem(
     var expanded by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     
-    val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent
+    val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
 
     val dimens = com.example.ui.theme.LocalAppDimens.current
 
@@ -434,11 +434,21 @@ fun FileListItem(
                 overflow = TextOverflow.Ellipsis
             )
             val dateStr = format.format(Date(file.lastModified))
-            val detailStr = if (file.isDirectory) dateStr else "${formatSize(file.size)} • $dateStr"
+            
+            // Format item details
+            val detailStr = if (file.isDirectory) {
+                // If directory, show "Folder" and date
+                "Složka • $dateStr"
+            } else {
+                "${formatSize(file.size)} • $dateStr"
+            }
+            
             Text(
                 text = detailStr,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         
@@ -452,15 +462,13 @@ fun FileListItem(
                     expanded = expanded,
                     onDismissRequest = { expanded = false }
                 ) {
-                    if (file.isDirectory) {
-                        DropdownMenuItem(
-                            text = { Text(if (isFavorite) "Odebrat z oblíbených" else "Přidat do oblíbených") },
-                            onClick = { expanded = false; onToggleFavorite() },
-                            leadingIcon = {
-                                Icon(if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, contentDescription = null)
-                            }
-                        )
-                    }
+                    DropdownMenuItem(
+                        text = { Text(if (isFavorite) "Odebrat z oblíbených" else "Přidat do oblíbených") },
+                        onClick = { expanded = false; onToggleFavorite() },
+                        leadingIcon = {
+                            Icon(if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, contentDescription = null)
+                        }
+                    )
                     if (file.name.endsWith(".zip", ignoreCase = true)) {
                         DropdownMenuItem(
                             text = { Text("Rozbalit zde") },
