@@ -1,0 +1,6 @@
+{
+  "name": "File Manager",
+  "description": "A robust, production-ready Android File Manager built with Jetpack Compose.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
