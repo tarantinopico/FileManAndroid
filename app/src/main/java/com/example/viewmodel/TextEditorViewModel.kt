@@ -7,6 +7,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.model.FileOperationResult
 import com.example.repository.FileRepository
+import com.example.model.EditorSettings
+import com.example.model.SyntaxLanguage
+import com.example.model.SyntaxMapping
+import com.example.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -39,12 +43,16 @@ data class TextEditorState(
 
 class TextEditorViewModel(application: Application) : AndroidViewModel(application) {
     private val fileRepository = FileRepository()
+    private val settingsRepository = SettingsRepository(application)
 
     private val _uiState = MutableStateFlow(TextEditorState())
     val uiState = _uiState.asStateFlow()
 
     private val _uiEvents = MutableSharedFlow<UiEvent>()
     val uiEvents = _uiEvents.asSharedFlow()
+    
+    val editorSettings = settingsRepository.editorSettings
+    val syntaxMappings = settingsRepository.syntaxMappings
     
     private val undoStack = mutableListOf<TextFieldValue>()
     private val redoStack = mutableListOf<TextFieldValue>()

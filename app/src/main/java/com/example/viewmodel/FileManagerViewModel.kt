@@ -58,6 +58,8 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     val storageVolumes = MutableStateFlow(storageRepository.getStorageVolumes())
     val themePreference = settingsRepository.themePreference
     val densityPreference = settingsRepository.densityPreference
+    val editorSettings = settingsRepository.editorSettings
+    val syntaxMappings = settingsRepository.syntaxMappings
     val favorites = settingsRepository.favorites
 
     init {
@@ -73,6 +75,30 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun setUiDensity(density: com.example.model.UiDensity) {
         viewModelScope.launch {
             settingsRepository.setUiDensity(density)
+        }
+    }
+
+    fun updateEditorSettings(settings: com.example.model.EditorSettings) {
+        viewModelScope.launch {
+            settingsRepository.updateEditorSettings(settings)
+        }
+    }
+
+    fun addSyntaxMapping(extension: String, language: com.example.model.SyntaxLanguage) {
+        viewModelScope.launch {
+            settingsRepository.addSyntaxMapping(com.example.model.SyntaxMapping(extension.lowercase().removePrefix("."), language))
+        }
+    }
+
+    fun removeSyntaxMapping(extension: String) {
+        viewModelScope.launch {
+            settingsRepository.removeSyntaxMapping(extension.lowercase().removePrefix("."))
+        }
+    }
+
+    fun resetSyntaxMappings() {
+        viewModelScope.launch {
+            settingsRepository.resetSyntaxMappings()
         }
     }
 

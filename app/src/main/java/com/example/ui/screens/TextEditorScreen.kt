@@ -32,6 +32,8 @@ fun TextEditorScreen(
     onNavigateBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val editorSettings by viewModel.editorSettings.collectAsStateWithLifecycle(initialValue = com.example.model.EditorSettings())
+    val syntaxMappings by viewModel.syntaxMappings.collectAsStateWithLifecycle(initialValue = emptyList())
     val snackbarHostState = remember { SnackbarHostState() }
     var showUnsavedDialog by remember { mutableStateOf(false) }
     var expandedMenu by remember { mutableStateOf(false) }
@@ -241,26 +243,31 @@ fun TextEditorScreen(
                         .fillMaxSize()
                         .verticalScroll(verticalScrollState)
                 ) {
-                    Text(
-                        text = lineNumbersText,
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                            .padding(horizontal = 8.dp, vertical = 12.dp)
-                            .fillMaxHeight(),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = TextStyle(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.End
+                    if (editorSettings.showLineNumbers) {
+                        Text(
+                            text = lineNumbersText,
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                                .padding(horizontal = 8.dp, vertical = 12.dp)
+                                .fillMaxHeight(),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.End
+                            )
                         )
-                    )
+                    }
+                    
+                    val syntaxLangPair = syntaxMappings.find { it.extension == state.extension }
+                    val langName = syntaxLangPair?.language?.name ?: state.extension
                     
                     BasicTextField(
                         value = state.textFieldValue,
                         onValueChange = viewModel::onContentChanged,
                         modifier = Modifier
                             .weight(1f)
-                            .horizontalScroll(horizontalScrollState)
+                            .let { if (editorSettings.wordWrap) it else it.horizontalScroll(horizontalScrollState) }
                             .padding(12.dp),
                         textStyle = TextStyle(
                             color = MaterialTheme.colorScheme.onSurface,
@@ -268,7 +275,11 @@ fun TextEditorScreen(
                             fontSize = 14.sp
                         ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        visualTransformation = SyntaxVisualTransformation(state.extension, state.findQuery)
+                        visualTransformation = if (editorSettings.syntaxHighlightEnabled) {
+                            SyntaxVisualTransformation(langName, state.findQuery)
+                        } else {
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        }
                     )
                 }
             }

@@ -39,3 +39,18 @@ enum class ThemeMode {
 enum class UiDensity {
     COMPACT, NORMAL, LARGE, EXTRA_LARGE
 }
+
+enum class SyntaxLanguage {
+    KOTLIN, PYTHON, XML, JSON, YAML, GRADLE, CSS, MARKDOWN, PLAIN
+}
+
+data class SyntaxMapping(
+    val extension: String,
+    val language: SyntaxLanguage
+)
+
+data class EditorSettings(
+    val wordWrap: Boolean = false,
+    val showLineNumbers: Boolean = true,
+    val syntaxHighlightEnabled: Boolean = true
+)

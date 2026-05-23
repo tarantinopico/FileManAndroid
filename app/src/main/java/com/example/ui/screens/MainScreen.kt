@@ -26,7 +26,8 @@ fun MainScreen(
     val storageVolumes by viewModel.storageVolumes.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle(initialValue = emptyList())
     val clipboard by viewModel.clipboard.collectAsStateWithLifecycle()
-    
+    val syntaxMappings by viewModel.syntaxMappings.collectAsStateWithLifecycle(initialValue = emptyList())
+
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -62,11 +63,13 @@ fun MainScreen(
                     java.io.File(file.path)
                 )
                 
-                val extension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
-                val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: "*/*"
+                val extension = file.name.substringAfterLast('.', "").lowercase()
+                val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "*/*"
                 
+                val isKnownTextExtension = syntaxMappings.any { it.extension == extension }
                 val textExtensions = listOf("txt", "md", "csv", "xml", "json", "kt", "java", "py", "html", "css", "js", "log", "ini", "properties")
-                if (mimeType.startsWith("text/") || extension.lowercase() in textExtensions) {
+                
+                if (mimeType.startsWith("text/") || extension in textExtensions || isKnownTextExtension) {
                     onNavigateToEditor(file.path, file.name)
                 } else {
                     val intent = Intent(Intent.ACTION_VIEW).apply {

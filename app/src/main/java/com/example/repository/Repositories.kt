@@ -68,17 +68,38 @@ class FileRepository {
         try {
             val file = File(path)
             if (!file.exists() || !file.isFile) {
-                return@withContext Result.failure(Exception("Neplatný soubor"))
+                return@withContext Result.failure(Exception("Neplatný soubor nebo soubor neexistuje"))
             }
             if (!file.canRead()) {
                 return@withContext Result.failure(Exception("Nemáte oprávnění ke čtení tohoto souboru"))
             }
-            if (file.length() > 500 * 1024) { // 500KB limit for text editors to prevent severe OOM/lag in Compose
-                return@withContext Result.failure(Exception("Soubor je příliš velký pro integrovaný editor (max 500KB)"))
+            if (file.length() > 2 * 1024 * 1024) { // Increased to 2MB to handle larger files but still safe
+                return@withContext Result.failure(Exception("Soubor je příliš velký (max 2MB)"))
             }
-            Result.success(file.readText())
+            
+            // Basic detection for binary files to avoid opening random garbage in text editor
+            if (file.length() > 0) {
+                val input = file.inputStream()
+                val bytes = ByteArray(minOf(1024, file.length().toInt()))
+                val read = input.read(bytes)
+                input.close()
+                if (read > 0) {
+                    var nullBytes = 0
+                    for (i in 0 until read) {
+                        if (bytes[i] == 0.toByte()) nullBytes++
+                    }
+                    if (nullBytes > 0) {
+                        return@withContext Result.failure(Exception("Soubor obsahuje binární data a nelze jej otevřít jako text"))
+                    }
+                }
+            }
+
+            val text = file.readText(Charsets.UTF_8)
+            Result.success(text)
+        } catch (e: java.nio.charset.MalformedInputException) {
+            Result.failure(Exception("Soubor má neplatné kódování textu"))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception("Nelze přečíst soubor: ${e.message}"))
         }
     }
 
