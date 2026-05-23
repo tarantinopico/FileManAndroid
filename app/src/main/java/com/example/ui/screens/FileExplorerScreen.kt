@@ -29,6 +29,8 @@ import com.example.viewmodel.ClipboardState
 import com.example.viewmodel.FileManagerState
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 
 fun getIconForFile(file: FileModel): ImageVector {
     if (file.isDirectory) return Icons.Rounded.Folder
@@ -48,6 +50,12 @@ fun getIconForFile(file: FileModel): ImageVector {
     }
 }
 
+fun getColorForExtension(extension: String): Color {
+    val hash = extension.lowercase().hashCode()
+    val hue = (hash % 360 + 360) % 360
+    return Color.hsv(hue.toFloat(), 0.6f, 0.8f) // Pastel/distinct color based on extension string
+}
+
 fun formatSize(sizeBytes: Long): String {
     if (sizeBytes <= 0) return "0 B"
     val units = arrayOf("B", "KB", "MB", "GB", "TB")
@@ -63,6 +71,7 @@ fun FileExplorerScreen(
     favorites: List<FavoriteModel>,
     clipboard: ClipboardState?,
     fileSettings: com.example.model.FileSettings,
+    syntaxMappings: List<com.example.model.SyntaxMapping>,
     onNavigate: (String) -> Unit,
     onNavigateUp: () -> Unit,
     onCreateFolder: (String) -> Unit,
@@ -327,6 +336,7 @@ fun FileExplorerScreen(
                                 isSelected = selected,
                                 isMultiSelectMode = isMultiSelect,
                                 showExtensions = fileSettings.showFileExtensions,
+                                syntaxMappings = syntaxMappings,
                                 onClick = {
                                     if (isMultiSelect) {
                                         onToggleSelection(file.path)
@@ -484,6 +494,7 @@ fun FileListItem(
     isSelected: Boolean,
     isMultiSelectMode: Boolean,
     showExtensions: Boolean,
+    syntaxMappings: List<com.example.model.SyntaxMapping>,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onRename: (String) -> Unit,
@@ -503,6 +514,7 @@ fun FileListItem(
     )
 
     val dimens = com.example.ui.theme.LocalAppDimens.current
+    val ext = file.name.substringAfterLast('.', "").lowercase()
 
     Row(
         modifier = Modifier
@@ -524,7 +536,6 @@ fun FileListItem(
         }
         
         Box(modifier = Modifier.size(dimens.iconSize * 1.5f), contentAlignment = Alignment.Center) {
-            val ext = file.name.substringAfterLast('.', "").lowercase()
             val isImage = !file.isDirectory && ext in listOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
             
             if (isImage) {
@@ -563,14 +574,39 @@ fun FileListItem(
         Spacer(modifier = Modifier.width(dimens.paddingLarge))
         
         Column(modifier = Modifier.weight(1f)) {
-            val displayName = if (!file.isDirectory && !showExtensions) file.name.substringBeforeLast('.', file.name) else file.name
-            Text(
-                text = displayName,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // If showExtensions is true, we show the badge and hide the extension from the text.
+                // If false, we show the full name and hide the badge.
+                val showBadge = !file.isDirectory && file.name.contains('.') && ext.isNotEmpty() && showExtensions
+                val displayName = if (showBadge) file.name.substringBeforeLast('.', file.name) else file.name
+                
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                
+                if (showBadge) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    val customColor = syntaxMappings.find { it.extension.lowercase() == ext }?.tagColorArgb?.let { Color(it) } ?: getColorForExtension(ext)
+                    Box(
+                        modifier = Modifier
+                            .background(customColor.copy(alpha = 0.2f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = ext,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = customColor.copy(alpha = 0.8f),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
             val dateStr = format.format(Date(file.lastModified))
             
             // Format item details

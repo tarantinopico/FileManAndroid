@@ -110,9 +110,9 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun addSyntaxMapping(extension: String, language: com.example.model.SyntaxLanguage) {
+    fun addSyntaxMapping(extension: String, language: com.example.model.SyntaxLanguage, tagColorArgb: Int? = null) {
         viewModelScope.launch {
-            settingsRepository.addSyntaxMapping(com.example.model.SyntaxMapping(extension.lowercase().removePrefix("."), language))
+            settingsRepository.addSyntaxMapping(com.example.model.SyntaxMapping(extension.lowercase().removePrefix("."), language, tagColorArgb))
         }
     }
 

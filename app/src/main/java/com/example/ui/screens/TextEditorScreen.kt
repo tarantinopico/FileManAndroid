@@ -228,20 +228,59 @@ fun TextEditorScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (state.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        "Načítám soubor...",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Prosím čekejte.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
             } else if (state.errorMessage != null) {
-                Text(
-                    text = state.errorMessage!!,
-                    modifier = Modifier.padding(16.dp).align(Alignment.Center),
-                    color = MaterialTheme.colorScheme.error
-                )
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Rounded.ErrorOutline,
+                        contentDescription = "Chyba",
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = state.errorMessage!!,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+                }
             } else {
                 val verticalScrollState = rememberScrollState()
                 val horizontalScrollState = rememberScrollState()
                 val text = state.textFieldValue.text
-                val lines = text.count { it == '\n' } + 1
-                val lineNumbersText = remember(lines) { (1..lines).joinToString("\n") }
                 
+                // Calculate current line for active background highlighting
+                val currentLineIndex = remember(state.textFieldValue.selection.start, text) {
+                    if (text.isEmpty()) 0 else text.substring(0, minOf(state.textFieldValue.selection.start, text.length)).count { it == '\n' }
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -249,19 +288,28 @@ fun TextEditorScreen(
                         .verticalScroll(verticalScrollState)
                 ) {
                     if (editorSettings.showLineNumbers) {
-                        Text(
-                            text = lineNumbersText,
+                        Column(
                             modifier = Modifier
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                                 .padding(horizontal = 8.dp, vertical = 12.dp)
                                 .fillMaxHeight(),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = TextStyle(
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 14.sp,
-                                textAlign = TextAlign.End
-                            )
-                        )
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            val lineCount = text.count { it == '\n' } + 1
+                            for (i in 0 until lineCount) {
+                                val isCurrentLine = i == currentLineIndex
+                                Text(
+                                    text = "${i + 1}",
+                                    color = if (isCurrentLine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    style = TextStyle(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 14.sp,
+                                        textAlign = TextAlign.End,
+                                        fontWeight = if (isCurrentLine) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
+                                    )
+                                )
+                            }
+                        }
                     }
                     
                     val syntaxLangPair = syntaxMappings.find { it.extension == state.extension }
@@ -289,7 +337,12 @@ fun TextEditorScreen(
                 }
             }
             if (state.isSaving) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                Box(
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
             }
         }
     }

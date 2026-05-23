@@ -6,6 +6,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Code
@@ -359,6 +361,7 @@ fun SyntaxSettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val mappings by viewModel.syntaxMappings.collectAsStateWithLifecycle(initialValue = emptyList())
+    var editingMapping by remember { mutableStateOf<SyntaxMapping?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -393,12 +396,43 @@ fun SyntaxSettingsScreen(
             
             mappings.forEach { mapping ->
                 ListItem(
-                    headlineContent = { Text(".${mapping.extension}", fontWeight = FontWeight.Bold) },
+                    headlineContent = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(".${mapping.extension}", fontWeight = FontWeight.Bold)
+                            val customColor = mapping.tagColorArgb?.let { androidx.compose.ui.graphics.Color(it) } ?: getColorForExtension(mapping.extension)
+                            Spacer(Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(customColor.copy(alpha = 0.2f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Ukázka štítku",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = customColor.copy(alpha = 0.8f),
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    },
                     supportingContent = { Text(mapping.language.name) },
                     trailingContent = {
-                        IconButton(onClick = { viewModel.removeSyntaxMapping(mapping.extension) }) {
-                            Icon(Icons.Rounded.Delete, contentDescription = "Smazat")
+                        Row {
+                            IconButton(onClick = { 
+                                editingMapping = mapping
+                                showAddDialog = true
+                            }) {
+                                Icon(Icons.Rounded.Edit, contentDescription = "Upravit")
+                            }
+                            IconButton(onClick = { viewModel.removeSyntaxMapping(mapping.extension) }) {
+                                Icon(Icons.Rounded.Delete, contentDescription = "Smazat")
+                            }
                         }
+                    },
+                    modifier = Modifier.clickable {
+                        editingMapping = mapping
+                        showAddDialog = true
                     }
                 )
                 HorizontalDivider()
@@ -408,14 +442,24 @@ fun SyntaxSettingsScreen(
     }
 
     if (showAddDialog) {
-        var ext by remember { mutableStateOf("") }
-        var lang by remember { mutableStateOf(SyntaxLanguage.PLAIN) }
+        var ext by remember { mutableStateOf(editingMapping?.extension ?: "") }
+        var lang by remember { mutableStateOf(editingMapping?.language ?: SyntaxLanguage.PLAIN) }
+        var selectedColor by remember { mutableStateOf<androidx.compose.ui.graphics.Color?>(editingMapping?.tagColorArgb?.let { androidx.compose.ui.graphics.Color(it) }) }
         var showLangDropdown by remember { mutableStateOf(false) }
+        
+        val presetColors = listOf(
+            androidx.compose.ui.graphics.Color(0xFFF44336), // Red
+            androidx.compose.ui.graphics.Color(0xFFFF9800), // Orange
+            androidx.compose.ui.graphics.Color(0xFF4CAF50), // Green
+            androidx.compose.ui.graphics.Color(0xFF2196F3), // Blue
+            androidx.compose.ui.graphics.Color(0xFF9C27B0), // Purple
+            androidx.compose.ui.graphics.Color(0xFF009688)  // Teal
+        )
 
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
+            onDismissRequest = { showAddDialog = false; editingMapping = null },
             shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-            title = { Text("Přidat příponu", style = MaterialTheme.typography.titleMedium) },
+            title = { Text(if (editingMapping != null) "Upravit příponu" else "Přidat příponu", style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column {
                     OutlinedTextField(
@@ -423,7 +467,8 @@ fun SyntaxSettingsScreen(
                         onValueChange = { ext = it },
                         label = { Text("Přípona (např. kt)") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = editingMapping == null // Do not allow changing extension name while editing
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     ExposedDropdownMenuBox(
@@ -434,7 +479,7 @@ fun SyntaxSettingsScreen(
                             value = lang.name,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Jazyk") },
+                            label = { Text("Jazyk pro editor") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showLangDropdown) },
                             modifier = Modifier.menuAnchor().fillMaxWidth()
                         )
@@ -453,20 +498,55 @@ fun SyntaxSettingsScreen(
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Barva štítku (volitelné)", style = MaterialTheme.typography.labelMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            // Default / Auto color
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        color = if (selectedColor == null) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent,
+                                        shape = androidx.compose.foundation.shape.CircleShape
+                                    )
+                                    .clickable { selectedColor = null },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Auto", style = MaterialTheme.typography.labelSmall, color = if (selectedColor == null) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        items(presetColors.size) { index ->
+                            val color = presetColors[index]
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(color, androidx.compose.foundation.shape.CircleShape)
+                                    .clickable { selectedColor = color },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (selectedColor == color) {
+                                    Icon(Icons.Rounded.Edit, contentDescription = "Vybráno", tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
                     if (ext.isNotBlank()) {
-                        viewModel.addSyntaxMapping(ext, lang)
+                        viewModel.addSyntaxMapping(ext, lang, selectedColor?.toArgb())
                         showAddDialog = false
+                        editingMapping = null
                     }
                 }) {
-                    Text("Přidat")
+                    Text("Uložit")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
+                TextButton(onClick = { showAddDialog = false; editingMapping = null }) {
                     Text("Zrušit")
                 }
             }

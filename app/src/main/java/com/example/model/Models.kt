@@ -64,7 +64,8 @@ enum class SyntaxLanguage {
 
 data class SyntaxMapping(
     val extension: String,
-    val language: SyntaxLanguage
+    val language: SyntaxLanguage,
+    val tagColorArgb: Int? = null
 )
 
 data class EditorSettings(

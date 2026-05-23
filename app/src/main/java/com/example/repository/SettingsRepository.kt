@@ -159,9 +159,10 @@ class SettingsRepository(private val context: Context) {
         } else {
             raw.split(";").filter { it.isNotBlank() }.mapNotNull {
                 val parts = it.split("=")
-                if (parts.size == 2) {
+                if (parts.size >= 2) {
                     try {
-                        SyntaxMapping(parts[0], SyntaxLanguage.valueOf(parts[1]))
+                        val colorInfo = if (parts.size > 2) parts[2].toIntOrNull() else null
+                        SyntaxMapping(parts[0], SyntaxLanguage.valueOf(parts[1]), colorInfo)
                     } catch (e: Exception) { null }
                 } else null
             }.sortedBy { it.extension }
@@ -198,12 +199,13 @@ class SettingsRepository(private val context: Context) {
             val currentList = if (currentRaw != null) {
                 currentRaw.split(";").filter { it.isNotBlank() }.associate {
                     val p = it.split("=")
-                    p[0] to p[1]
+                    // extension to language, optionally color
+                    p[0] to (if (p.size > 2) "${p[1]}=${p[2]}" else p[1])
                 }.toMutableMap()
             } else {
                 defaultMappings.associate { it.extension to it.language.name }.toMutableMap()
             }
-            currentList[mapping.extension] = mapping.language.name
+            currentList[mapping.extension] = mapping.language.name + (mapping.tagColorArgb?.let { "=$it" } ?: "")
             prefs[SYNTAX_MAPPINGS] = currentList.entries.joinToString(";") { "${it.key}=${it.value}" }
         }
     }
@@ -214,7 +216,7 @@ class SettingsRepository(private val context: Context) {
             val currentList = if (currentRaw != null) {
                 currentRaw.split(";").filter { it.isNotBlank() }.associate {
                     val p = it.split("=")
-                    p[0] to p[1]
+                    p[0] to (if (p.size > 2) "${p[1]}=${p[2]}" else p[1])
                 }.toMutableMap()
             } else {
                 defaultMappings.associate { it.extension to it.language.name }.toMutableMap()

@@ -239,6 +239,7 @@ fun MainScreen(
                 favorites = favorites,
                 clipboard = clipboard,
                 fileSettings = fileSettings,
+                syntaxMappings = syntaxMappings,
                 onNavigate = { path -> viewModel.loadDirectory(path) },
                 onNavigateUp = { viewModel.navigateUp() },
                 onCreateFolder = { name -> viewModel.createFolder(name) },
