@@ -261,29 +261,35 @@ fun FileExplorerScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (state.breadcrumbs.size > 1 && !showSearch) {
+            if (state.breadcrumbs.isNotEmpty() && !showSearch) {
                 LazyRow(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(state.breadcrumbs) { breadcrumb ->
-                        Text(
-                            text = breadcrumb.name,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .combinedClickable(
-                                    onClick = { onNavigate(breadcrumb.path) }
-                                )
-                                .padding(4.dp)
-                        )
+                    items(state.breadcrumbs, key = { it.path }) { breadcrumb ->
+                        Surface(
+                            color = androidx.compose.ui.graphics.Color.Transparent,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                            modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                        ) {
+                            Text(
+                                text = breadcrumb.name,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .combinedClickable(
+                                        onClick = { onNavigate(breadcrumb.path) }
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                            )
+                        }
                         if (breadcrumb != state.breadcrumbs.last()) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                             )
                         }
                     }
@@ -496,7 +502,9 @@ fun FileListItem(
     var expanded by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     
-    val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+    val bgColor by androidx.compose.animation.animateColorAsState(
+        if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+    )
 
     val dimens = com.example.ui.theme.LocalAppDimens.current
 
@@ -504,9 +512,11 @@ fun FileListItem(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = dimens.listItemHeight)
+            .padding(horizontal = dimens.paddingMedium, vertical = 2.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
             .background(bgColor)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = dimens.paddingLarge, vertical = dimens.paddingMedium),
+            .padding(horizontal = dimens.paddingMedium, vertical = dimens.paddingMedium),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isMultiSelectMode) {

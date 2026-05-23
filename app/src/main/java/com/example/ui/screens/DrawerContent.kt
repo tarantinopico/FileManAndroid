@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.example.model.FavoriteModel
 import com.example.model.StorageVolumeModel
@@ -105,31 +106,36 @@ fun DrawerItem(
 ) {
     val dimens = com.example.ui.theme.LocalAppDimens.current
     val contentColor = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-    Row(
+    
+    Box(
         modifier = Modifier
+            .padding(horizontal = 12.dp, vertical = 4.dp)
             .fillMaxWidth()
-            .heightIn(min = dimens.listItemHeight)
-            .run {
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(100))
+            .let {
                 if (onLongClick != null) {
-                    this.combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
+                    it.combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
                 } else {
-                    this.clickable(enabled = enabled, onClick = onClick)
+                    it.clickable(enabled = enabled, onClick = onClick)
                 }
             }
-            .padding(horizontal = dimens.paddingLarge, vertical = dimens.paddingMedium),
-        verticalAlignment = Alignment.CenterVertically
+            .heightIn(min = dimens.listItemHeight)
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = contentColor,
-            modifier = Modifier.size(dimens.iconSize)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = contentColor
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(dimens.iconSize)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                color = contentColor
+            )
+        }
     }
 }

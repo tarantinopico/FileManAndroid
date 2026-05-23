@@ -37,7 +37,14 @@ import kotlinx.coroutines.launch
 @Composable
 fun AppNavigation(viewModel: FileManagerViewModel) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "main") {
+    NavHost(
+        navController = navController, 
+        startDestination = "main",
+        enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) + androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(300)) { it / 8 } },
+        exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300)) + androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(300)) { -it / 8 } },
+        popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) + androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(300)) { -it / 8 } },
+        popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300)) + androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(300)) { it / 8 } }
+    ) {
         composable("main") {
             MainScreen(
                 viewModel = viewModel,
