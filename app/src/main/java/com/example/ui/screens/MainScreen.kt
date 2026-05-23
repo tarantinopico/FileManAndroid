@@ -1,37 +1,30 @@
 package com.example.ui.screens
 
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import androidx.activity.compose.BackHandler
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.model.FileModel
-import com.example.ui.state.ClipboardOperation
-import com.example.ui.state.UiEvent
+import com.example.viewmodel.ClipboardOperation
 import com.example.viewmodel.FileManagerViewModel
 import kotlinx.coroutines.launch
-import java.io.File
-import java.util.Locale
 
 @Composable
-fun MainScreen(viewModel: FileManagerViewModel) {
+fun MainScreen(
+    viewModel: FileManagerViewModel,
+    onNavigateToSettings: () -> Unit
+) {
     val hasPermission by viewModel.hasPermission.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val storageVolumes by viewModel.storageVolumes.collectAsStateWithLifecycle()
-    val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val favorites by viewModel.favorites.collectAsStateWithLifecycle(initialValue = emptyList())
+    val clipboard by viewModel.clipboard.collectAsStateWithLifecycle()
     
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -41,16 +34,10 @@ fun MainScreen(viewModel: FileManagerViewModel) {
     LaunchedEffect(Unit) {
         viewModel.uiEvents.collect { event ->
             when (event) {
-                is UiEvent.ShowToast -> {
+                is com.example.viewmodel.UiEvent.ShowToast -> {
                     snackbarHostState.showSnackbar(
                         message = event.message,
                         duration = SnackbarDuration.Short
-                    )
-                }
-                is UiEvent.Error -> {
-                    snackbarHostState.showSnackbar(
-                        message = event.message,
-                        duration = SnackbarDuration.Long
                     )
                 }
             }
@@ -70,26 +57,21 @@ fun MainScreen(viewModel: FileManagerViewModel) {
             try {
                 val uri: Uri = FileProvider.getUriForFile(
                     context,
-                    "${context.packageName}.fileprovider",
-                    File(file.path)
+                    "${context.packageName}.provider",
+                    java.io.File(file.path)
                 )
-
-                val extension = File(file.path).extension
-                val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase(Locale.getDefault())) ?: "*/*"
-
+                
+                val extension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+                val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: "*/*"
+                
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(uri, mimeType)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
-
-                val chooser = Intent.createChooser(intent, "Otevřít soubor")
-                context.startActivity(chooser)
+                context.startActivity(Intent.createChooser(intent, "Otevřít pomocí"))
             } catch (e: Exception) {
                 scope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = "Nelze otevřít soubor: ${e.localizedMessage}",
-                        duration = SnackbarDuration.Short
-                    )
+                    snackbarHostState.showSnackbar("Nelze otevřít soubor")
                 }
             }
         }
@@ -107,14 +89,18 @@ fun MainScreen(viewModel: FileManagerViewModel) {
                     onFavoriteClick = { favorite ->
                         scope.launch { drawerState.close() }
                         viewModel.loadDirectory(favorite.path)
+                    },
+                    onSettingsClick = {
+                        scope.launch { drawerState.close() }
+                        onNavigateToSettings()
                     }
                 )
             }
         ) {
-            val isFavorite = favorites.any { it.path == uiState.currentPath }
             FileExplorerScreen(
                 state = uiState,
                 favorites = favorites,
+                clipboard = clipboard,
                 onNavigate = { path -> viewModel.loadDirectory(path) },
                 onNavigateUp = { viewModel.navigateUp() },
                 onCreateFolder = { name -> viewModel.createFolder(name) },
@@ -127,7 +113,8 @@ fun MainScreen(viewModel: FileManagerViewModel) {
                 onOpenFile = onOpenFile,
                 onMenuClick = { scope.launch { drawerState.open() } },
                 onToggleFavorite = { file ->
-                    viewModel.toggleFavorite(file.path, file.name)
+                    val isFav = favorites.any { it.path == file.path }
+                    viewModel.toggleFavorite(file.path, file.name, isFav)
                 },
                 snackbarHostState = snackbarHostState
             )
