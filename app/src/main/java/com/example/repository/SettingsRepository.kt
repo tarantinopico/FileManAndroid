@@ -27,6 +27,11 @@ class SettingsRepository(private val context: Context) {
     private val EDITOR_LINE_NUMBERS = booleanPreferencesKey("editor_line_numbers")
     private val EDITOR_HIGHLIGHT = booleanPreferencesKey("editor_highlight")
     private val SYNTAX_MAPPINGS = stringPreferencesKey("syntax_mappings")
+    
+    // File Settings
+    private val FILE_SHOW_HIDDEN = booleanPreferencesKey("file_show_hidden")
+    private val FILE_SHOW_EXTENSIONS = booleanPreferencesKey("file_show_extensions")
+    private val FILE_SORT_OPTION = stringPreferencesKey("file_sort_option")
 
     val themePreference: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         when (prefs[THEME_KEY]) {
@@ -126,6 +131,30 @@ class SettingsRepository(private val context: Context) {
                     } catch (e: Exception) { null }
                 } else null
             }.sortedBy { it.extension }
+        }
+    }
+
+    val fileSettings: Flow<com.example.model.FileSettings> = context.dataStore.data.map { prefs ->
+        val sortOptionStr = prefs[FILE_SORT_OPTION]
+        val sortOption = try {
+            if (sortOptionStr != null) com.example.model.SortOption.valueOf(sortOptionStr)
+            else com.example.model.SortOption.NAME_ASC
+        } catch (e: Exception) {
+            com.example.model.SortOption.NAME_ASC
+        }
+        
+        com.example.model.FileSettings(
+            showHiddenFiles = prefs[FILE_SHOW_HIDDEN] ?: false,
+            showFileExtensions = prefs[FILE_SHOW_EXTENSIONS] ?: true,
+            sortOption = sortOption
+        )
+    }
+
+    suspend fun updateFileSettings(settings: com.example.model.FileSettings) {
+        context.dataStore.edit { prefs ->
+            prefs[FILE_SHOW_HIDDEN] = settings.showHiddenFiles
+            prefs[FILE_SHOW_EXTENSIONS] = settings.showFileExtensions
+            prefs[FILE_SORT_OPTION] = settings.sortOption.name
         }
     }
 

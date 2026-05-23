@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -60,10 +61,23 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     val densityPreference = settingsRepository.densityPreference
     val editorSettings = settingsRepository.editorSettings
     val syntaxMappings = settingsRepository.syntaxMappings
+    val fileSettings = settingsRepository.fileSettings.stateIn(
+        scope = viewModelScope,
+        started = kotlinx.coroutines.flow.SharingStarted.Eagerly,
+        initialValue = com.example.model.FileSettings()
+    )
     val favorites = settingsRepository.favorites
 
     init {
         checkPermission()
+        
+        viewModelScope.launch {
+            fileSettings.collect {
+                if (_uiState.value.currentPath.isNotEmpty()) {
+                    loadDirectory(_uiState.value.currentPath)
+                }
+            }
+        }
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -81,6 +95,18 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun updateEditorSettings(settings: com.example.model.EditorSettings) {
         viewModelScope.launch {
             settingsRepository.updateEditorSettings(settings)
+        }
+    }
+
+    fun updateFileSettings(settings: com.example.model.FileSettings) {
+        viewModelScope.launch {
+            settingsRepository.updateFileSettings(settings)
+            
+            // Reload if we have a current path
+            val currentPath = _uiState.value.currentPath
+            if (currentPath.isNotEmpty()) {
+                loadDirectory(currentPath)
+            }
         }
     }
 
@@ -131,12 +157,14 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
                 val currentVolume = storageVolumes.value.find { path.startsWith(it.path) }
                 val rootPathForVolume = currentVolume?.path ?: primaryRoot
                 
+                val filteredAndSorted = applyFileSettings(files)
+                
                 val parentPath = if (path == rootPathForVolume) null else java.io.File(path).parent
                 _uiState.update {
                     it.copy(
                         currentPath = path,
                         parentPath = parentPath,
-                        files = files,
+                        files = filteredAndSorted,
                         breadcrumbs = buildBreadcrumbs(rootPathForVolume, path, currentVolume?.name ?: "Domů"),
                         isLoading = false
                     )
@@ -145,6 +173,27 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
             }
         }
+    }
+    
+    private fun applyFileSettings(files: List<FileModel>): List<FileModel> {
+        var result = files
+        val settings = fileSettings.value
+        
+        if (!settings.showHiddenFiles) {
+            result = result.filter { !it.name.startsWith(".") }
+        }
+        
+        val comparator = when (settings.sortOption) {
+            com.example.model.SortOption.NAME_ASC -> compareBy<FileModel> { !it.isDirectory }.thenBy { it.name.lowercase() }
+            com.example.model.SortOption.NAME_DESC -> compareBy<FileModel> { !it.isDirectory }.thenByDescending { it.name.lowercase() }
+            com.example.model.SortOption.SIZE_ASC -> compareBy<FileModel> { !it.isDirectory }.thenBy { it.size }
+            com.example.model.SortOption.SIZE_DESC -> compareBy<FileModel> { !it.isDirectory }.thenByDescending { it.size }
+            com.example.model.SortOption.DATE_ASC -> compareBy<FileModel> { !it.isDirectory }.thenBy { it.lastModified }
+            com.example.model.SortOption.DATE_DESC -> compareBy<FileModel> { !it.isDirectory }.thenByDescending { it.lastModified }
+            com.example.model.SortOption.TYPE_ASC -> compareBy<FileModel> { !it.isDirectory }.thenBy { it.name.substringAfterLast('.', "").lowercase() }.thenBy { it.name.lowercase() }
+            com.example.model.SortOption.TYPE_DESC -> compareBy<FileModel> { !it.isDirectory }.thenByDescending { it.name.substringAfterLast('.', "").lowercase() }.thenByDescending { it.name.lowercase() }
+        }
+        return result.sortedWith(comparator)
     }
 
     fun navigateUp() {

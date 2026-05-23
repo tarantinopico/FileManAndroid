@@ -40,6 +40,19 @@ enum class UiDensity {
     COMPACT, NORMAL, LARGE, EXTRA_LARGE
 }
 
+enum class SortOption {
+    NAME_ASC, NAME_DESC,
+    SIZE_ASC, SIZE_DESC,
+    DATE_ASC, DATE_DESC,
+    TYPE_ASC, TYPE_DESC
+}
+
+data class FileSettings(
+    val showHiddenFiles: Boolean = false,
+    val showFileExtensions: Boolean = true,
+    val sortOption: SortOption = SortOption.NAME_ASC
+)
+
 enum class SyntaxLanguage {
     KOTLIN, PYTHON, XML, JSON, YAML, GRADLE, CSS, MARKDOWN, PLAIN
 }

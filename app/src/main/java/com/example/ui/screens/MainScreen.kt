@@ -27,6 +27,7 @@ fun MainScreen(
     val favorites by viewModel.favorites.collectAsStateWithLifecycle(initialValue = emptyList())
     val clipboard by viewModel.clipboard.collectAsStateWithLifecycle()
     val syntaxMappings by viewModel.syntaxMappings.collectAsStateWithLifecycle(initialValue = emptyList())
+    val fileSettings by viewModel.fileSettings.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -111,6 +112,7 @@ fun MainScreen(
                 state = uiState,
                 favorites = favorites,
                 clipboard = clipboard,
+                fileSettings = fileSettings,
                 onNavigate = { path -> viewModel.loadDirectory(path) },
                 onNavigateUp = { viewModel.navigateUp() },
                 onCreateFolder = { name -> viewModel.createFolder(name) },

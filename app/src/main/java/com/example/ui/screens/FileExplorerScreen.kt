@@ -57,6 +57,7 @@ fun FileExplorerScreen(
     state: FileManagerState,
     favorites: List<FavoriteModel>,
     clipboard: ClipboardState?,
+    fileSettings: com.example.model.FileSettings,
     onNavigate: (String) -> Unit,
     onNavigateUp: () -> Unit,
     onCreateFolder: (String) -> Unit,
@@ -183,6 +184,9 @@ fun FileExplorerScreen(
                         IconButton(onClick = { showSearch = true }) {
                             Icon(Icons.Rounded.Search, contentDescription = "Hledat")
                         }
+                        IconButton(onClick = { onNavigate(state.currentPath) }) {
+                            Icon(Icons.Rounded.Refresh, contentDescription = "Obnovit")
+                        }
                         Box {
                             IconButton(onClick = { showCreateMenu = true }) {
                                 Icon(Icons.Rounded.Add, contentDescription = "Přidat")
@@ -273,6 +277,7 @@ fun FileExplorerScreen(
                                 format = format,
                                 isSelected = selected,
                                 isMultiSelectMode = isMultiSelect,
+                                showExtensions = fileSettings.showFileExtensions,
                                 onClick = {
                                     if (isMultiSelect) {
                                         onToggleSelection(file.path)
@@ -349,7 +354,17 @@ fun FileExplorerScreen(
                     Text("Cesta: ${file.path}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            confirmButton = { TextButton(onClick = { showInfoDialogFor = null }) { Text("Zavřít") } }
+            confirmButton = { TextButton(onClick = { showInfoDialogFor = null }) { Text("Zavřít") } },
+            dismissButton = {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                TextButton(onClick = {
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Cesta", file.path))
+                    android.widget.Toast.makeText(context, "Zkopírováno", android.widget.Toast.LENGTH_SHORT).show()
+                }) {
+                    Text("Kopírovat cestu")
+                }
+            }
         )
     }
 }
@@ -362,6 +377,7 @@ fun FileListItem(
     format: SimpleDateFormat,
     isSelected: Boolean,
     isMultiSelectMode: Boolean,
+    showExtensions: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onRename: (String) -> Unit,
@@ -409,8 +425,9 @@ fun FileListItem(
         Spacer(modifier = Modifier.width(dimens.paddingLarge))
         
         Column(modifier = Modifier.weight(1f)) {
+            val displayName = if (!file.isDirectory && !showExtensions) file.name.substringBeforeLast('.', file.name) else file.name
             Text(
-                text = file.name,
+                text = displayName,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
@@ -478,6 +495,27 @@ fun FileListItem(
                         onClick = { expanded = false; onShowInfo() },
                         leadingIcon = { Icon(Icons.Rounded.Info, null) }
                     )
+                    if (!file.isDirectory) {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        DropdownMenuItem(
+                            text = { Text("Sdílet") },
+                            onClick = { 
+                                expanded = false
+                                val uri = androidx.core.content.FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.provider",
+                                    java.io.File(file.path)
+                                )
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "*/*"
+                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(intent, "Sdílet"))
+                            },
+                            leadingIcon = { Icon(Icons.Rounded.Share, null) }
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Smazat") },
                         onClick = { expanded = false; onDelete() },

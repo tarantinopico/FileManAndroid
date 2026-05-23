@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.ViewCompact
@@ -39,11 +40,13 @@ fun SettingsScreen(
     val themePreference by viewModel.themePreference.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
     val densityPreference by viewModel.densityPreference.collectAsStateWithLifecycle(initialValue = UiDensity.NORMAL)
     val editorSettings by viewModel.editorSettings.collectAsStateWithLifecycle(initialValue = EditorSettings())
+    val fileSettings by viewModel.fileSettings.collectAsStateWithLifecycle()
     
     var showThemeDialog by remember { mutableStateOf(false) }
     var showDensityDialog by remember { mutableStateOf(false) }
     var showEditorDialog by remember { mutableStateOf(false) }
     var showSyntaxScreen by remember { mutableStateOf(false) }
+    var showFileDialog by remember { mutableStateOf(false) }
 
     if (showSyntaxScreen) {
         SyntaxSettingsScreen(viewModel, onNavigateBack = { showSyntaxScreen = false })
@@ -75,6 +78,13 @@ fun SettingsScreen(
                 supportingContent = { Text(getDensityLabel(densityPreference)) },
                 leadingContent = { Icon(Icons.Rounded.ViewCompact, contentDescription = null) },
                 modifier = Modifier.clickable { showDensityDialog = true }
+            )
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Prohlížení souborů") },
+                supportingContent = { Text("Zobrazení skrytých, přípon a řazení") },
+                leadingContent = { Icon(Icons.Rounded.FolderOpen, contentDescription = null) },
+                modifier = Modifier.clickable { showFileDialog = true }
             )
             HorizontalDivider()
             ListItem(
@@ -223,6 +233,69 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showEditorDialog = false }) {
+                    Text("Zavřít")
+                }
+            }
+        )
+    }
+
+    if (showFileDialog) {
+        AlertDialog(
+            onDismissRequest = { showFileDialog = false },
+            title = { Text("Prohlížení souborů") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { viewModel.updateFileSettings(fileSettings.copy(showHiddenFiles = !fileSettings.showHiddenFiles)) }.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Skryté soubory")
+                            Text("Zobrazit soubory a složky začínající tečkou", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = fileSettings.showHiddenFiles, onCheckedChange = null)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { viewModel.updateFileSettings(fileSettings.copy(showFileExtensions = !fileSettings.showFileExtensions)) }.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Přípony souborů")
+                            Text("Zobrazovat za názvem souboru jeho typ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = fileSettings.showFileExtensions, onCheckedChange = null)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("Výchozí řazení", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(8.dp))
+                    com.example.model.SortOption.values().forEach { option ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = (option == fileSettings.sortOption),
+                                    onClick = { 
+                                        viewModel.updateFileSettings(fileSettings.copy(sortOption = option))
+                                    },
+                                    role = Role.RadioButton
+                                )
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = (option == fileSettings.sortOption),
+                                onClick = null
+                            )
+                            Spacer(Modifier.width(16.dp))
+                            Text(getSortLabel(option))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showFileDialog = false }) {
                     Text("Zavřít")
                 }
             }
@@ -424,5 +497,18 @@ private fun getDensityDescription(density: UiDensity): String {
         UiDensity.NORMAL -> "Vyvážený poměr mezi mezerami a informacemi."
         UiDensity.LARGE -> "Větší mezery, ikony i ovladatelnost."
         UiDensity.EXTRA_LARGE -> "Maximální čitelnost a snadné dotyky, vhodné pro velké displeje."
+    }
+}
+
+private fun getSortLabel(option: com.example.model.SortOption): String {
+    return when (option) {
+        com.example.model.SortOption.NAME_ASC -> "Název (A-Z)"
+        com.example.model.SortOption.NAME_DESC -> "Název (Z-A)"
+        com.example.model.SortOption.SIZE_ASC -> "Velikost (Od nejmenšího)"
+        com.example.model.SortOption.SIZE_DESC -> "Velikost (Od největšího)"
+        com.example.model.SortOption.DATE_ASC -> "Datum (Od nejstaršího)"
+        com.example.model.SortOption.DATE_DESC -> "Datum (Od nejnovějšího)"
+        com.example.model.SortOption.TYPE_ASC -> "Typ (A-Z)"
+        com.example.model.SortOption.TYPE_DESC -> "Typ (Z-A)"
     }
 }
