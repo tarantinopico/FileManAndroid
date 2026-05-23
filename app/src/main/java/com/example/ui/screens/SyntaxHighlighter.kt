@@ -43,8 +43,8 @@ object SyntaxHighlighter {
     private val colorFind = Color(0xFFD32F2F) // Red bg for find
     
     fun highlight(text: String, extension: String, findQuery: String = "", replaceQuery: String = ""): AnnotatedString {
-        if (text.length > 25000) { 
-            // Fallback for large files to avoid UI lag. Only highlight search.
+        if (text.length > 25000 || text.contains('\u0000')) { 
+            // Fallback for large files or binary to avoid UI lag. Only highlight search.
             return highlightFindOnly(text, findQuery)
         }
         
@@ -53,6 +53,11 @@ object SyntaxHighlighter {
             val ext = extension.lowercase()
             
             try {
+                // If any single line is ridiculously long, it might freeze the regex engine.
+                if (text.lines().any { it.length > 1000 }) {
+                    return highlightFindOnly(text, findQuery)
+                }
+                
                 when (ext) {
                     "kt", "kts", "java", "cpp", "c", "h", "cs", "swift", "go", "rs", "js", "ts" -> {
                         keywordPattern.findAll(text).forEach { addStyle(SpanStyle(color = colorKeyword), it.range.first, it.range.last + 1) }

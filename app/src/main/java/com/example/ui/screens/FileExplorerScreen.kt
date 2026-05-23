@@ -378,32 +378,35 @@ fun FileListItem(
     
     val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent
 
+    val dimens = com.example.ui.theme.LocalAppDimens.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = dimens.listItemHeight)
             .background(bgColor)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(16.dp),
+            .padding(horizontal = dimens.paddingLarge, vertical = dimens.paddingMedium),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isMultiSelectMode) {
             Checkbox(
                 checked = isSelected,
                 onCheckedChange = { onClick() },
-                modifier = Modifier.padding(end = 12.dp)
+                modifier = Modifier.padding(end = dimens.paddingLarge)
             )
         }
         
-        Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.size(dimens.iconSize * 1.5f), contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = getIconForFile(file),
                 contentDescription = if (file.isDirectory) "Složka" else "Soubor",
                 tint = if (file.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(dimens.iconSize * 1.5f)
             )
         }
         
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(dimens.paddingLarge))
         
         Column(modifier = Modifier.weight(1f)) {
             Text(

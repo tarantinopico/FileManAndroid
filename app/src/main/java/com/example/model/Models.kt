@@ -35,3 +35,7 @@ data class FavoriteModel(
 enum class ThemeMode {
     SYSTEM, LIGHT, DARK
 }
+
+enum class UiDensity {
+    COMPACT, NORMAL, LARGE, EXTRA_LARGE
+}

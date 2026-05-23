@@ -73,8 +73,8 @@ class FileRepository {
             if (!file.canRead()) {
                 return@withContext Result.failure(Exception("Nemáte oprávnění ke čtení tohoto souboru"))
             }
-            if (file.length() > 2 * 1024 * 1024) { // 2MB limit for text editors to prevent severe OOM/lag
-                return@withContext Result.failure(Exception("Soubor je příliš velký pro integrovaný editor (max 2MB)"))
+            if (file.length() > 500 * 1024) { // 500KB limit for text editors to prevent severe OOM/lag in Compose
+                return@withContext Result.failure(Exception("Soubor je příliš velký pro integrovaný editor (max 500KB)"))
             }
             Result.success(file.readText())
         } catch (e: Exception) {

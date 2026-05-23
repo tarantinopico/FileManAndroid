@@ -20,6 +20,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val themePreference = viewModel.themePreference.collectAsState(initial = com.example.model.ThemeMode.SYSTEM).value
+            val densityPreference = viewModel.densityPreference.collectAsState(initial = com.example.model.UiDensity.NORMAL).value
             
             val isDarkTheme = when (themePreference) {
                 com.example.model.ThemeMode.LIGHT -> false
@@ -27,7 +28,7 @@ class MainActivity : ComponentActivity() {
                 com.example.model.ThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
             }
 
-            FileManagerTheme(darkTheme = isDarkTheme) {
+            FileManagerTheme(darkTheme = isDarkTheme, density = densityPreference) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

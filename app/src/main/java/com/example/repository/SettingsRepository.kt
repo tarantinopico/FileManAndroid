@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.model.FavoriteModel
 import com.example.model.ThemeMode
+import com.example.model.UiDensity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.io.File
@@ -15,6 +16,7 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 
 class SettingsRepository(private val context: Context) {
     private val THEME_KEY = stringPreferencesKey("theme_mode")
+    private val DENSITY_KEY = stringPreferencesKey("ui_density")
     private val FAVORITES_KEY = stringSetPreferencesKey("favorite_paths")
 
     val themePreference: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
@@ -24,10 +26,25 @@ class SettingsRepository(private val context: Context) {
             else -> ThemeMode.SYSTEM
         }
     }
+    
+    val densityPreference: Flow<UiDensity> = context.dataStore.data.map { prefs ->
+        when (prefs[DENSITY_KEY]) {
+            UiDensity.COMPACT.name -> UiDensity.COMPACT
+            UiDensity.LARGE.name -> UiDensity.LARGE
+            UiDensity.EXTRA_LARGE.name -> UiDensity.EXTRA_LARGE
+            else -> UiDensity.NORMAL
+        }
+    }
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { prefs ->
             prefs[THEME_KEY] = mode.name
+        }
+    }
+    
+    suspend fun setUiDensity(density: UiDensity) {
+        context.dataStore.edit { prefs ->
+            prefs[DENSITY_KEY] = density.name
         }
     }
 

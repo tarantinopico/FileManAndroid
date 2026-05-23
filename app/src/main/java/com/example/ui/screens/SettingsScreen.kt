@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.ViewCompact
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +16,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.model.ThemeMode
+import com.example.model.UiDensity
 import com.example.viewmodel.FileManagerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,7 +27,10 @@ fun SettingsScreen(
     onNavigateToAbout: () -> Unit
 ) {
     val themePreference by viewModel.themePreference.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
+    val densityPreference by viewModel.densityPreference.collectAsStateWithLifecycle(initialValue = UiDensity.NORMAL)
+    
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showDensityDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -45,6 +50,13 @@ fun SettingsScreen(
                 supportingContent = { Text(getThemeLabel(themePreference)) },
                 leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) },
                 modifier = Modifier.clickable { showThemeDialog = true }
+            )
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Hustota zobrazení (Kompaktnost)") },
+                supportingContent = { Text(getDensityLabel(densityPreference)) },
+                leadingContent = { Icon(Icons.Rounded.ViewCompact, contentDescription = null) },
+                modifier = Modifier.clickable { showDensityDialog = true }
             )
             HorizontalDivider()
             ListItem(
@@ -88,6 +100,48 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showThemeDialog = false }) {
+                    Text("Zavřít")
+                }
+            }
+        )
+    }
+    
+    if (showDensityDialog) {
+        AlertDialog(
+            onDismissRequest = { showDensityDialog = false },
+            title = { Text("Hustota zobrazení") },
+            text = {
+                Column {
+                    UiDensity.values().forEach { density ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = (density == densityPreference),
+                                    onClick = { 
+                                        viewModel.setUiDensity(density)
+                                        showDensityDialog = false
+                                    },
+                                    role = Role.RadioButton
+                                )
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = (density == densityPreference),
+                                onClick = null
+                            )
+                            Spacer(Modifier.width(16.dp))
+                            Column {
+                                Text(getDensityLabel(density))
+                                Text(getDensityDescription(density), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDensityDialog = false }) {
                     Text("Zavřít")
                 }
             }
@@ -150,5 +204,23 @@ private fun getThemeLabel(mode: ThemeMode): String {
         ThemeMode.SYSTEM -> "Výchozí nastavení systému"
         ThemeMode.LIGHT -> "Světlý motiv"
         ThemeMode.DARK -> "Tmavý motiv"
+    }
+}
+
+private fun getDensityLabel(density: UiDensity): String {
+    return when (density) {
+        UiDensity.COMPACT -> "Nejmenší (Kompaktní)"
+        UiDensity.NORMAL -> "Normální"
+        UiDensity.LARGE -> "Velké"
+        UiDensity.EXTRA_LARGE -> "Největší"
+    }
+}
+
+private fun getDensityDescription(density: UiDensity): String {
+    return when (density) {
+        UiDensity.COMPACT -> "Minimum mezer, maximální množství informací na obrazovce."
+        UiDensity.NORMAL -> "Vyvážený poměr mezi mezerami a informacemi."
+        UiDensity.LARGE -> "Větší mezery, ikony i ovladatelnost."
+        UiDensity.EXTRA_LARGE -> "Maximální čitelnost a snadné dotyky, vhodné pro velké displeje."
     }
 }

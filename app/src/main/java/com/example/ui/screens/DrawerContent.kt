@@ -89,19 +89,21 @@ fun DrawerItem(
     onClick: () -> Unit,
     enabled: Boolean = true
 ) {
+    val dimens = com.example.ui.theme.LocalAppDimens.current
     val contentColor = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = dimens.listItemHeight)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = dimens.paddingLarge, vertical = dimens.paddingMedium),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = contentColor,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(dimens.iconSize)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(

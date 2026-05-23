@@ -15,6 +15,24 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.example.model.UiDensity
+
+data class AppDimens(
+    val paddingSmall: Dp,
+    val paddingMedium: Dp,
+    val paddingLarge: Dp,
+    val iconSize: Dp,
+    val listItemHeight: Dp
+)
+
+val LocalAppDimens = staticCompositionLocalOf {
+    AppDimens(4.dp, 8.dp, 16.dp, 24.dp, 56.dp)
+}
+
 private val LightColors = lightColorScheme(
     primary = md_theme_light_primary,
     onPrimary = md_theme_light_onPrimary,
@@ -37,6 +55,7 @@ private val DarkColors = darkColorScheme(
 fun FileManagerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
+    density: UiDensity = UiDensity.NORMAL,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -56,9 +75,44 @@ fun FileManagerTheme(
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
+    
+    val appDimens = when (density) {
+        UiDensity.COMPACT -> AppDimens(paddingSmall = 2.dp, paddingMedium = 4.dp, paddingLarge = 8.dp, iconSize = 20.dp, listItemHeight = 40.dp)
+        UiDensity.NORMAL -> AppDimens(paddingSmall = 4.dp, paddingMedium = 8.dp, paddingLarge = 16.dp, iconSize = 24.dp, listItemHeight = 56.dp)
+        UiDensity.LARGE -> AppDimens(paddingSmall = 6.dp, paddingMedium = 12.dp, paddingLarge = 24.dp, iconSize = 32.dp, listItemHeight = 64.dp)
+        UiDensity.EXTRA_LARGE -> AppDimens(paddingSmall = 8.dp, paddingMedium = 16.dp, paddingLarge = 32.dp, iconSize = 40.dp, listItemHeight = 72.dp)
+    }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
+    val baseTypography = androidx.compose.material3.Typography()
+    val textScale = when (density) {
+        UiDensity.COMPACT -> 0.85f
+        UiDensity.NORMAL -> 1.0f
+        UiDensity.LARGE -> 1.25f
+        UiDensity.EXTRA_LARGE -> 1.5f
+    }
+    val typography = androidx.compose.material3.Typography(
+        displayLarge = baseTypography.displayLarge.copy(fontSize = baseTypography.displayLarge.fontSize * textScale),
+        displayMedium = baseTypography.displayMedium.copy(fontSize = baseTypography.displayMedium.fontSize * textScale),
+        displaySmall = baseTypography.displaySmall.copy(fontSize = baseTypography.displaySmall.fontSize * textScale),
+        headlineLarge = baseTypography.headlineLarge.copy(fontSize = baseTypography.headlineLarge.fontSize * textScale),
+        headlineMedium = baseTypography.headlineMedium.copy(fontSize = baseTypography.headlineMedium.fontSize * textScale),
+        headlineSmall = baseTypography.headlineSmall.copy(fontSize = baseTypography.headlineSmall.fontSize * textScale),
+        titleLarge = baseTypography.titleLarge.copy(fontSize = baseTypography.titleLarge.fontSize * textScale),
+        titleMedium = baseTypography.titleMedium.copy(fontSize = baseTypography.titleMedium.fontSize * textScale),
+        titleSmall = baseTypography.titleSmall.copy(fontSize = baseTypography.titleSmall.fontSize * textScale),
+        bodyLarge = baseTypography.bodyLarge.copy(fontSize = baseTypography.bodyLarge.fontSize * textScale),
+        bodyMedium = baseTypography.bodyMedium.copy(fontSize = baseTypography.bodyMedium.fontSize * textScale),
+        bodySmall = baseTypography.bodySmall.copy(fontSize = baseTypography.bodySmall.fontSize * textScale),
+        labelLarge = baseTypography.labelLarge.copy(fontSize = baseTypography.labelLarge.fontSize * textScale),
+        labelMedium = baseTypography.labelMedium.copy(fontSize = baseTypography.labelMedium.fontSize * textScale),
+        labelSmall = baseTypography.labelSmall.copy(fontSize = baseTypography.labelSmall.fontSize * textScale),
     )
+
+    CompositionLocalProvider(LocalAppDimens provides appDimens) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = typography,
+            content = content
+        )
+    }
 }

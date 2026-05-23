@@ -57,6 +57,7 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
 
     val storageVolumes = MutableStateFlow(storageRepository.getStorageVolumes())
     val themePreference = settingsRepository.themePreference
+    val densityPreference = settingsRepository.densityPreference
     val favorites = settingsRepository.favorites
 
     init {
@@ -66,6 +67,12 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             settingsRepository.setThemeMode(mode)
+        }
+    }
+    
+    fun setUiDensity(density: com.example.model.UiDensity) {
+        viewModelScope.launch {
+            settingsRepository.setUiDensity(density)
         }
     }
 
