@@ -235,10 +235,16 @@ fun FileExplorerScreen(
                     }
                 )
             } else {
-                CenterAlignedTopAppBar(
+                TopAppBar(
                     title = { 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(state.breadcrumbs.lastOrNull()?.name ?: "Soubory", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = state.breadcrumbs.lastOrNull()?.name ?: "Soubory",
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
                             if (isRepo) {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Box(
@@ -253,7 +259,9 @@ fun FileExplorerScreen(
                                         text = gitState.repoStatus.branchName ?: "Repo",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (gitState.repoStatus.hasUncommittedChanges) Color(0xFFE6A23C) else MaterialTheme.colorScheme.onPrimaryContainer,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -271,12 +279,6 @@ fun FileExplorerScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = onNavigateBack, enabled = state.historyBackStack.isNotEmpty()) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět v historii", tint = if (state.historyBackStack.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconButton(onClick = onNavigateForward, enabled = state.historyForwardStack.isNotEmpty()) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "Vpřed v historii", tint = if (state.historyForwardStack.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
                         IconButton(onClick = { showSearch = true }) {
                             Icon(Icons.Rounded.Search, contentDescription = "Hledat", tint = MaterialTheme.colorScheme.primary)
                         }
@@ -492,6 +494,26 @@ fun FileExplorerScreen(
                 
                 if (state.isLoading) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter))
+                }
+                
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = gitState.isActionLoading,
+                    enter = androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.fadeOut(),
+                    modifier = Modifier.align(Alignment.Center)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Načítání (Git)...", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
                 }
             }
         }

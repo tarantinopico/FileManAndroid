@@ -177,7 +177,14 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun checkPermission() {
-        val granted = Environment.isExternalStorageManager()
+        val granted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                getApplication(), 
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
         _hasPermission.value = granted
         // Initialization logic is now partially handled by the appPreferences collector
     }
