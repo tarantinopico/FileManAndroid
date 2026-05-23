@@ -184,6 +184,186 @@ class FileRepository {
             FileOperationResult.Error(e.message ?: "Chyba")
         }
     }
+
+    suspend fun zipFiles(sourcePaths: List<String>, destZipDir: String, zipName: String): FileOperationResult = withContext(Dispatchers.IO) {
+        try {
+            val validName = if (zipName.endsWith(".zip", ignoreCase = true)) zipName else "$zipName.zip"
+            if (!isValidFileName(validName)) return@withContext FileOperationResult.Error("Neplatný název archivu")
+            
+            var dest = File(destZipDir, validName)
+            var counter = 1
+            while (dest.exists()) {
+                val nameWithoutExtension = validName.substringBeforeLast(".")
+                dest = File(destZipDir, "$nameWithoutExtension ($counter).zip")
+                counter++
+            }
+            
+            java.util.zip.ZipOutputStream(java.io.FileOutputStream(dest)).use { zout ->
+                for (path in sourcePaths) {
+                    val fileToZip = File(path)
+                    if (fileToZip.exists()) {
+                        zipFileOrFolder(fileToZip, fileToZip.name, zout)
+                    }
+                }
+            }
+            FileOperationResult.Success
+        } catch (e: Exception) {
+            FileOperationResult.Error(e.message ?: "Chyba při kompresi")
+        }
+    }
+
+    private fun zipFileOrFolder(fileToZip: File, currentName: String, zout: java.util.zip.ZipOutputStream) {
+        if (fileToZip.isHidden) return
+        if (fileToZip.isDirectory) {
+            val fileName = if (currentName.endsWith("/")) currentName else "$currentName/"
+            zout.putNextEntry(java.util.zip.ZipEntry(fileName))
+            zout.closeEntry()
+            fileToZip.listFiles()?.forEach { child ->
+                zipFileOrFolder(child, fileName + child.name, zout)
+            }
+            return
+        }
+        val fis = java.io.FileInputStream(fileToZip)
+        val zipEntry = java.util.zip.ZipEntry(currentName)
+        zout.putNextEntry(zipEntry)
+        val bytes = ByteArray(4096)
+        var length: Int
+        while (fis.read(bytes).also { length = it } >= 0) {
+            zout.write(bytes, 0, length)
+        }
+        fis.close()
+    }
+
+    suspend fun unzipFile(zipPath: String, destDir: String): FileOperationResult = withContext(Dispatchers.IO) {
+        try {
+            val zipFile = File(zipPath)
+            val destFolder = File(destDir, zipFile.nameWithoutExtension)
+            if (!destFolder.exists()) destFolder.mkdirs()
+
+            java.util.zip.ZipInputStream(java.io.FileInputStream(zipFile)).use { zis ->
+                var zipEntry: java.util.zip.ZipEntry? = zis.nextEntry
+                while (zipEntry != null) {
+                    val newFile = File(destFolder, zipEntry.name)
+                    
+                    // Prevent path traversal
+                    if (!newFile.canonicalPath.startsWith(destFolder.canonicalPath + File.separator)) {
+                        return@withContext FileOperationResult.Error("Zip attempt path traversal: ${zipEntry.name}")
+                    }
+                    
+                    if (zipEntry.isDirectory) {
+                        newFile.mkdirs()
+                    } else {
+                        newFile.parentFile?.mkdirs()
+                        java.io.FileOutputStream(newFile).use { fos ->
+                            val buffer = ByteArray(4096)
+                            var len: Int
+                            while (zis.read(buffer).also { len = it } > 0) {
+                                fos.write(buffer, 0, len)
+                            }
+                        }
+                    }
+                    zipEntry = zis.nextEntry
+                }
+                zis.closeEntry()
+            }
+            FileOperationResult.Success
+        } catch (e: Exception) {
+            FileOperationResult.Error(e.message ?: "Chyba při extrakci")
+        }
+    }
+
+    suspend fun encryptFiles(sourcePaths: List<String>, destDir: String, password: String): FileOperationResult = withContext(Dispatchers.IO) {
+        try {
+            for (path in sourcePaths) {
+                val source = File(path)
+                if (!source.isFile) continue // Skip directories for now, or require them to be zipped first
+                val dest = File(destDir, "${source.name}.enc")
+                
+                val salt = java.security.SecureRandom().generateSeed(16)
+                val iv = java.security.SecureRandom().generateSeed(16)
+                
+                val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+                val spec = javax.crypto.spec.PBEKeySpec(password.toCharArray(), salt, 65536, 256)
+                val tmp = factory.generateSecret(spec)
+                val secret = javax.crypto.spec.SecretKeySpec(tmp.encoded, "AES")
+                
+                val cipher = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding")
+                cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, secret, javax.crypto.spec.IvParameterSpec(iv))
+                
+                java.io.FileOutputStream(dest).use { fos ->
+                    fos.write(salt)
+                    fos.write(iv)
+                    javax.crypto.CipherOutputStream(fos, cipher).use { cos ->
+                        java.io.FileInputStream(source).use { fis ->
+                            val buffer = ByteArray(4096)
+                            var len: Int
+                            while (fis.read(buffer).also { len = it } > 0) {
+                                cos.write(buffer, 0, len)
+                            }
+                        }
+                    }
+                }
+            }
+            FileOperationResult.Success
+        } catch (e: Exception) {
+            FileOperationResult.Error(e.message ?: "Chyba při šifrování")
+        }
+    }
+
+    suspend fun decryptFile(sourcePath: String, destDir: String, password: String): FileOperationResult = withContext(Dispatchers.IO) {
+        try {
+            val source = File(sourcePath)
+            var destName = source.name
+            if (destName.endsWith(".enc")) destName = destName.removeSuffix(".enc")
+            else destName = "$destName.dec"
+            
+            var dest = File(destDir, destName)
+            var counter = 1
+            while (dest.exists()) {
+                val nameWithoutExtension = destName.substringBeforeLast(".")
+                val ext = if (destName.contains(".")) ".${destName.substringAfterLast(".")}" else ""
+                dest = File(destDir, "$nameWithoutExtension ($counter)$ext")
+                counter++
+            }
+
+            java.io.FileInputStream(source).use { fis ->
+                val salt = ByteArray(16)
+                val iv = ByteArray(16)
+                if (fis.read(salt) != 16 || fis.read(iv) != 16) {
+                    return@withContext FileOperationResult.Error("Neplatný šifrovaný soubor")
+                }
+
+                val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+                val spec = javax.crypto.spec.PBEKeySpec(password.toCharArray(), salt, 65536, 256)
+                val tmp = factory.generateSecret(spec)
+                val secret = javax.crypto.spec.SecretKeySpec(tmp.encoded, "AES")
+
+                val cipher = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding")
+                cipher.init(javax.crypto.Cipher.DECRYPT_MODE, secret, javax.crypto.spec.IvParameterSpec(iv))
+
+                javax.crypto.CipherInputStream(fis, cipher).use { cis ->
+                    java.io.FileOutputStream(dest).use { fos ->
+                        val buffer = ByteArray(4096)
+                        var len: Int
+                        try {
+                            while (cis.read(buffer).also { len = it } > 0) {
+                                fos.write(buffer, 0, len)
+                            }
+                        } catch (e: javax.crypto.BadPaddingException) {
+                            dest.delete()
+                            return@withContext FileOperationResult.Error("Nesprávné heslo")
+                        } catch (e: java.io.IOException) {
+                            dest.delete()
+                            return@withContext FileOperationResult.Error("Nesprávné heslo nebo poškozená data")
+                        }
+                    }
+                }
+            }
+            FileOperationResult.Success
+        } catch (e: Exception) {
+            FileOperationResult.Error(e.message ?: "Chyba při dešifrování")
+        }
+    }
 }
 
 class StorageRepository(private val context: Context) {

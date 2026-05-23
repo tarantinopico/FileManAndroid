@@ -29,7 +29,9 @@ data class FileManagerState(
     val files: List<FileModel> = emptyList(),
     val breadcrumbs: List<BreadcrumbModel> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val selectedFiles: Set<String> = emptySet(),
+    val searchQuery: String = ""
 )
 
 sealed class UiEvent {
@@ -192,5 +194,89 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
             }
         }
         return breadcrumbs
+    }
+
+    fun toggleSelection(path: String) {
+        _uiState.update { state ->
+            val set = state.selectedFiles.toMutableSet()
+            if (set.contains(path)) set.remove(path) else set.add(path)
+            state.copy(selectedFiles = set)
+        }
+    }
+
+    fun selectAll() {
+        _uiState.update { state ->
+            state.copy(selectedFiles = state.files.map { it.path }.toSet())
+        }
+    }
+
+    fun clearSelection() {
+        _uiState.update { state ->
+            state.copy(selectedFiles = emptySet())
+        }
+    }
+
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    fun deleteSelected() {
+        val selected = _uiState.value.selectedFiles.toList()
+        if (selected.isEmpty()) return
+        clearSelection()
+        viewModelScope.launch {
+            var errors = 0
+            for (path in selected) {
+                if (fileRepository.deleteFile(path) is FileOperationResult.Error) errors++
+            }
+            if (errors == 0) handleOperationResult(FileOperationResult.Success, "Smazáno")
+            else handleOperationResult(FileOperationResult.Error("Některé soubory se nepodařilo smazat"), "")
+        }
+    }
+
+    fun zipSelected(zipName: String) {
+        val selected = _uiState.value.selectedFiles.toList()
+        if (selected.isEmpty()) return
+        val currentPath = _uiState.value.currentPath
+        clearSelection()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = fileRepository.zipFiles(selected, currentPath, zipName)
+            _uiState.update { it.copy(isLoading = false) }
+            handleOperationResult(result, "Zabaleno")
+        }
+    }
+
+    fun unzipFile(file: FileModel) {
+        val currentPath = _uiState.value.currentPath
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = fileRepository.unzipFile(file.path, currentPath)
+            _uiState.update { it.copy(isLoading = false) }
+            handleOperationResult(result, "Rozbaleno")
+        }
+    }
+    
+    fun encryptSelected(password: String) {
+        val selected = _uiState.value.selectedFiles.toList()
+        if (selected.isEmpty()) return
+        val currentPath = _uiState.value.currentPath
+        clearSelection()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = fileRepository.encryptFiles(selected, currentPath, password)
+            _uiState.update { it.copy(isLoading = false) }
+            handleOperationResult(result, "Zašifrováno")
+        }
+    }
+    
+    fun decryptSelected(file: FileModel, password: String) {
+        val currentPath = _uiState.value.currentPath
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = fileRepository.decryptFile(file.path, currentPath, password)
+            _uiState.update { it.copy(isLoading = false) }
+            handleOperationResult(result, "Dešifrováno")
+        }
     }
 }

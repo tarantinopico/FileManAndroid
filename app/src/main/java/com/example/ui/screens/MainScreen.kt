@@ -124,6 +124,15 @@ fun MainScreen(
                     val isFav = favorites.any { it.path == file.path }
                     viewModel.toggleFavorite(file.path, file.name, isFav)
                 },
+                onToggleSelection = { path -> viewModel.toggleSelection(path) },
+                onClearSelection = { viewModel.clearSelection() },
+                onSelectAll = { viewModel.selectAll() },
+                onSearchChange = { query -> viewModel.setSearchQuery(query) },
+                onBatchDelete = { viewModel.deleteSelected() },
+                onBatchZip = { zipName -> viewModel.zipSelected(zipName) },
+                onBatchEncrypt = { password -> viewModel.encryptSelected(password) },
+                onDecryptFile = { file, password -> viewModel.decryptSelected(file, password) },
+                onUnzipFile = { file -> viewModel.unzipFile(file) },
                 snackbarHostState = snackbarHostState
             )
         }
