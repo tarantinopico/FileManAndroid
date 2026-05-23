@@ -111,7 +111,7 @@ fun DrawerItem(
         modifier = Modifier
             .padding(horizontal = 12.dp, vertical = 4.dp)
             .fillMaxWidth()
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(100))
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
             .let {
                 if (onLongClick != null) {
                     it.combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)

@@ -113,8 +113,8 @@ fun FileExplorerScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (isMultiSelect) {
-                TopAppBar(
-                    title = { Text("${state.selectedFiles.size} vybráno") },
+                CenterAlignedTopAppBar(
+                    title = { Text("${state.selectedFiles.size} vybráno", style = MaterialTheme.typography.titleMedium) },
                     navigationIcon = {
                         IconButton(onClick = onClearSelection) {
                             Icon(Icons.Rounded.Close, contentDescription = "Zrušit výběr")
@@ -166,10 +166,10 @@ fun FileExplorerScreen(
                             }
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 )
             } else if (showSearch) {
-                TopAppBar(
+                CenterAlignedTopAppBar(
                     title = {
                         TextField(
                             value = state.searchQuery,
@@ -199,29 +199,29 @@ fun FileExplorerScreen(
                     }
                 )
             } else {
-                TopAppBar(
-                    title = { Text(state.breadcrumbs.lastOrNull()?.name ?: "Soubory") },
+                CenterAlignedTopAppBar(
+                    title = { Text(state.breadcrumbs.lastOrNull()?.name ?: "Soubory", style = MaterialTheme.typography.titleMedium) },
                     navigationIcon = {
                         if (state.parentPath != null) {
                             IconButton(onClick = onNavigateUp) {
-                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět")
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět", tint = MaterialTheme.colorScheme.primary)
                             }
                         } else {
                             IconButton(onClick = onMenuClick) {
-                                Icon(Icons.Rounded.Menu, contentDescription = "Menu")
+                                Icon(Icons.Rounded.Menu, contentDescription = "Menu", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     },
                     actions = {
                         IconButton(onClick = { showSearch = true }) {
-                            Icon(Icons.Rounded.Search, contentDescription = "Hledat")
+                            Icon(Icons.Rounded.Search, contentDescription = "Hledat", tint = MaterialTheme.colorScheme.primary)
                         }
                         IconButton(onClick = { onNavigate(state.currentPath) }) {
-                            Icon(Icons.Rounded.Refresh, contentDescription = "Obnovit")
+                            Icon(Icons.Rounded.Refresh, contentDescription = "Obnovit", tint = MaterialTheme.colorScheme.primary)
                         }
                         Box {
                             IconButton(onClick = { showCreateMenu = true }) {
-                                Icon(Icons.Rounded.Add, contentDescription = "Přidat")
+                                Icon(Icons.Rounded.Add, contentDescription = "Přidat", tint = MaterialTheme.colorScheme.primary)
                             }
                             DropdownMenu(
                                 expanded = showCreateMenu,
@@ -263,28 +263,23 @@ fun FileExplorerScreen(
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (state.breadcrumbs.isNotEmpty() && !showSearch) {
                 LazyRow(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     items(state.breadcrumbs, key = { it.path }) { breadcrumb ->
-                        Surface(
-                            color = androidx.compose.ui.graphics.Color.Transparent,
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                            modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                        ) {
-                            Text(
-                                text = breadcrumb.name,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .combinedClickable(
-                                        onClick = { onNavigate(breadcrumb.path) }
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 6.dp)
-                            )
-                        }
-                        if (breadcrumb != state.breadcrumbs.last()) {
+                        val isLast = breadcrumb == state.breadcrumbs.last()
+                        Text(
+                            text = breadcrumb.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isLast) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
+                            color = if (isLast) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                                .combinedClickable(onClick = { onNavigate(breadcrumb.path) })
+                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                        )
+                        if (!isLast) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                 contentDescription = null,
@@ -294,7 +289,7 @@ fun FileExplorerScreen(
                         }
                     }
                 }
-                HorizontalDivider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
@@ -427,6 +422,7 @@ fun FileExplorerScreen(
         
         AlertDialog(
             onDismissRequest = { showInfoDialogFor = null },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             icon = { Icon(getIconForFile(file), contentDescription = null, modifier = Modifier.size(32.dp)) },
             title = { Text("Informace o souboru", style = MaterialTheme.typography.titleLarge) },
             text = {
@@ -701,18 +697,20 @@ fun InputDialog(
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        title = { Text(title, style = MaterialTheme.typography.titleMedium) },
         text = {
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it },
                 singleLine = true,
-                visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None
+                visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             )
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(value) }) {
-                Text("Potvrdit")
+                Text("Potvrdit", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             }
         },
         dismissButton = {
@@ -734,7 +732,8 @@ fun FavoriteEditDialog(
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Přidat do oblíbených") },
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        title = { Text("Přidat do oblíbených", style = MaterialTheme.typography.titleMedium) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
@@ -742,7 +741,8 @@ fun FavoriteEditDialog(
                     onValueChange = { name = it },
                     label = { Text("Název") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                 )
                 
                 Text("Ikona", style = MaterialTheme.typography.labelLarge)
@@ -788,7 +788,7 @@ fun FavoriteEditDialog(
                         onConfirm(com.example.model.FavoriteModel(file.path, name, true, selectedIcon))
                     } 
                 }
-            ) { Text("Uložit") }
+            ) { Text("Uložit", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Zrušit") }

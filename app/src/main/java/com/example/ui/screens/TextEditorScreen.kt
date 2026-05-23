@@ -59,14 +59,15 @@ fun TextEditorScreen(
     if (showUnsavedDialog) {
         AlertDialog(
             onDismissRequest = { showUnsavedDialog = false },
-            title = { Text("Zahodit změny?") },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            title = { Text("Zahodit změny?", style = MaterialTheme.typography.titleMedium) },
             text = { Text("Máte neuložené změny. Opravdu chcete odejít bez uložení?") },
             confirmButton = {
-                Button(onClick = {
+                TextButton(onClick = {
                     showUnsavedDialog = false
                     onNavigateBack()
                 }) {
-                    Text("Odejít")
+                    Text("Odejít", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                 }
             },
             dismissButton = {
@@ -81,20 +82,22 @@ fun TextEditorScreen(
         var lineInput by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { viewModel.setGoToLineDialogVisible(false) },
-            title = { Text("Přejít na řádek") },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            title = { Text("Přejít na řádek", style = MaterialTheme.typography.titleMedium) },
             text = {
                 OutlinedTextField(
                     value = lineInput,
                     onValueChange = { lineInput = it.filter { char -> char.isDigit() } },
                     label = { Text("Číslo řádku") },
-                    singleLine = true
+                    singleLine = true,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                 )
             },
             confirmButton = {
-                Button(onClick = {
+                TextButton(onClick = {
                     lineInput.toIntOrNull()?.let { viewModel.goToLine(it) }
                 }) {
-                    Text("Přejít")
+                    Text("Přejít", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                 }
             },
             dismissButton = {
@@ -109,37 +112,38 @@ fun TextEditorScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
-                TopAppBar(
+                CenterAlignedTopAppBar(
                     title = {
                         Text(
                             text = state.name + if (state.hasUnsavedChanges) " *" else "",
                             maxLines = 1,
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = backAction) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět")
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět", tint = MaterialTheme.colorScheme.primary)
                         }
                     },
                     actions = {
                         IconButton(onClick = viewModel::undo, enabled = state.canUndo) {
-                            Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Zpět (Undo)")
+                            Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Zpět (Undo)", tint = if(state.canUndo) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha=0.38f))
                         }
                         IconButton(onClick = viewModel::redo, enabled = state.canRedo) {
-                            Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = "Znovu (Redo)")
+                            Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = "Znovu (Redo)", tint = if(state.canRedo) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha=0.38f))
                         }
                         IconButton(onClick = viewModel::toggleFindReplace) {
-                            Icon(Icons.Rounded.Search, contentDescription = "Hledat")
+                            Icon(Icons.Rounded.Search, contentDescription = "Hledat", tint = MaterialTheme.colorScheme.primary)
                         }
                         if (state.hasUnsavedChanges) {
                             IconButton(onClick = viewModel::saveFile, enabled = !state.isSaving) {
-                                Icon(Icons.Rounded.Save, contentDescription = "Uložit")
+                                Icon(Icons.Rounded.Save, contentDescription = "Uložit", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                         Box {
                             IconButton(onClick = { expandedMenu = true }) {
-                                Icon(Icons.Rounded.MoreVert, contentDescription = "Více")
+                                Icon(Icons.Rounded.MoreVert, contentDescription = "Více", tint = MaterialTheme.colorScheme.primary)
                             }
                             DropdownMenu(
                                 expanded = expandedMenu,

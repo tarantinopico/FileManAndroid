@@ -19,6 +19,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.model.UiDensity
 
 data class AppDimens(
@@ -39,7 +40,16 @@ private val LightColors = lightColorScheme(
     primaryContainer = md_theme_light_primaryContainer,
     onPrimaryContainer = md_theme_light_onPrimaryContainer,
     background = md_theme_light_background,
-    onBackground = md_theme_light_onBackground
+    onBackground = md_theme_light_onBackground,
+    surface = md_theme_light_surface,
+    onSurface = md_theme_light_onSurface,
+    surfaceVariant = md_theme_light_surfaceVariant,
+    onSurfaceVariant = md_theme_light_onSurfaceVariant,
+    surfaceContainer = md_theme_light_surface,
+    surfaceContainerHigh = md_theme_light_surface,
+    surfaceContainerHighest = md_theme_light_surface,
+    surfaceContainerLow = md_theme_light_background,
+    surfaceContainerLowest = md_theme_light_background
 )
 
 private val DarkColors = darkColorScheme(
@@ -48,7 +58,16 @@ private val DarkColors = darkColorScheme(
     primaryContainer = md_theme_dark_primaryContainer,
     onPrimaryContainer = md_theme_dark_onPrimaryContainer,
     background = md_theme_dark_background,
-    onBackground = md_theme_dark_onBackground
+    onBackground = md_theme_dark_onBackground,
+    surface = md_theme_dark_surface,
+    onSurface = md_theme_dark_onSurface,
+    surfaceVariant = md_theme_dark_surfaceVariant,
+    onSurfaceVariant = md_theme_dark_onSurfaceVariant,
+    surfaceContainer = md_theme_dark_surface,
+    surfaceContainerHigh = md_theme_dark_surface,
+    surfaceContainerHighest = md_theme_dark_surface,
+    surfaceContainerLow = md_theme_dark_background,
+    surfaceContainerLowest = md_theme_dark_background
 )
 
 @Composable
@@ -59,10 +78,6 @@ fun FileManagerTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
         darkTheme -> DarkColors
         else -> LightColors
     }
@@ -91,27 +106,36 @@ fun FileManagerTheme(
         UiDensity.EXTRA_LARGE -> 1.5f
     }
     val typography = androidx.compose.material3.Typography(
-        displayLarge = baseTypography.displayLarge.copy(fontSize = baseTypography.displayLarge.fontSize * textScale),
-        displayMedium = baseTypography.displayMedium.copy(fontSize = baseTypography.displayMedium.fontSize * textScale),
-        displaySmall = baseTypography.displaySmall.copy(fontSize = baseTypography.displaySmall.fontSize * textScale),
-        headlineLarge = baseTypography.headlineLarge.copy(fontSize = baseTypography.headlineLarge.fontSize * textScale),
-        headlineMedium = baseTypography.headlineMedium.copy(fontSize = baseTypography.headlineMedium.fontSize * textScale),
-        headlineSmall = baseTypography.headlineSmall.copy(fontSize = baseTypography.headlineSmall.fontSize * textScale),
-        titleLarge = baseTypography.titleLarge.copy(fontSize = baseTypography.titleLarge.fontSize * textScale),
-        titleMedium = baseTypography.titleMedium.copy(fontSize = baseTypography.titleMedium.fontSize * textScale),
-        titleSmall = baseTypography.titleSmall.copy(fontSize = baseTypography.titleSmall.fontSize * textScale),
+        displayLarge = baseTypography.displayLarge.copy(fontSize = baseTypography.displayLarge.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, letterSpacing = (-0.5).dp.value.sp),
+        displayMedium = baseTypography.displayMedium.copy(fontSize = baseTypography.displayMedium.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, letterSpacing = (-0.5).dp.value.sp),
+        displaySmall = baseTypography.displaySmall.copy(fontSize = baseTypography.displaySmall.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, letterSpacing = (-0.25).dp.value.sp),
+        headlineLarge = baseTypography.headlineLarge.copy(fontSize = baseTypography.headlineLarge.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+        headlineMedium = baseTypography.headlineMedium.copy(fontSize = baseTypography.headlineMedium.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+        headlineSmall = baseTypography.headlineSmall.copy(fontSize = baseTypography.headlineSmall.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+        titleLarge = baseTypography.titleLarge.copy(fontSize = baseTypography.titleLarge.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+        titleMedium = baseTypography.titleMedium.copy(fontSize = baseTypography.titleMedium.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+        titleSmall = baseTypography.titleSmall.copy(fontSize = baseTypography.titleSmall.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
         bodyLarge = baseTypography.bodyLarge.copy(fontSize = baseTypography.bodyLarge.fontSize * textScale),
         bodyMedium = baseTypography.bodyMedium.copy(fontSize = baseTypography.bodyMedium.fontSize * textScale),
         bodySmall = baseTypography.bodySmall.copy(fontSize = baseTypography.bodySmall.fontSize * textScale),
-        labelLarge = baseTypography.labelLarge.copy(fontSize = baseTypography.labelLarge.fontSize * textScale),
-        labelMedium = baseTypography.labelMedium.copy(fontSize = baseTypography.labelMedium.fontSize * textScale),
-        labelSmall = baseTypography.labelSmall.copy(fontSize = baseTypography.labelSmall.fontSize * textScale),
+        labelLarge = baseTypography.labelLarge.copy(fontSize = baseTypography.labelLarge.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+        labelMedium = baseTypography.labelMedium.copy(fontSize = baseTypography.labelMedium.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+        labelSmall = baseTypography.labelSmall.copy(fontSize = baseTypography.labelSmall.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+    )
+
+    val shapes = androidx.compose.material3.Shapes(
+        extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+        small = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        medium = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+        large = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
     )
 
     CompositionLocalProvider(LocalAppDimens provides appDimens) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,
+            shapes = shapes,
             content = content
         )
     }

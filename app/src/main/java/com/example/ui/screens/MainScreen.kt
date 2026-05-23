@@ -62,8 +62,9 @@ fun MainScreen(
         val file = unsupportedFileFor!!
         AlertDialog(
             onDismissRequest = { unsupportedFileFor = null },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             icon = { Icon(Icons.Rounded.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Nelze otevřít soubor") },
+            title = { Text("Nelze otevřít soubor", style = MaterialTheme.typography.titleMedium) },
             text = { 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Nepodařilo se najít vhodnou aplikaci pro otevření tohoto souboru. Můžete soubor zkusit přečíst jako text, nebo zkopírovat jeho cestu.")
@@ -96,7 +97,8 @@ fun MainScreen(
         
         AlertDialog(
             onDismissRequest = { showFavoriteEditDialogFor = null },
-            title = { Text("Upravit oblíbenou") },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            title = { Text("Upravit oblíbenou", style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
@@ -104,7 +106,8 @@ fun MainScreen(
                         onValueChange = { name = it },
                         label = { Text("Název") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                     )
                     
                     Text("Ikona", style = MaterialTheme.typography.labelLarge)
@@ -151,7 +154,7 @@ fun MainScreen(
                             showFavoriteEditDialogFor = null
                         } 
                     }
-                ) { Text("Uložit") }
+                ) { Text("Uložit", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) }
             },
             dismissButton = {
                 TextButton(onClick = { showFavoriteEditDialogFor = null }) { Text("Zrušit") }

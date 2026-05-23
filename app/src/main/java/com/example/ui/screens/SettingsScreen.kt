@@ -55,64 +55,110 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Nastavení") },
+            CenterAlignedTopAppBar(
+                title = { Text("Nastavení", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             )
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
-            ListItem(
-                headlineContent = { Text("Vzhled aplikace") },
-                supportingContent = { Text(getThemeLabel(themePreference)) },
-                leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) },
-                modifier = Modifier.clickable { showThemeDialog = true }
-            )
-            HorizontalDivider()
-            ListItem(
-                headlineContent = { Text("Hustota zobrazení (Kompaktnost)") },
-                supportingContent = { Text(getDensityLabel(densityPreference)) },
-                leadingContent = { Icon(Icons.Rounded.ViewCompact, contentDescription = null) },
-                modifier = Modifier.clickable { showDensityDialog = true }
-            )
-            HorizontalDivider()
-            ListItem(
-                headlineContent = { Text("Prohlížení souborů") },
-                supportingContent = { Text("Zobrazení skrytých, přípon a řazení") },
-                leadingContent = { Icon(Icons.Rounded.FolderOpen, contentDescription = null) },
-                modifier = Modifier.clickable { showFileDialog = true }
-            )
-            HorizontalDivider()
-            ListItem(
-                headlineContent = { Text("Editor a kód") },
-                supportingContent = { Text("Zalamování řádků, čísla řádků") },
-                leadingContent = { Icon(Icons.Rounded.Edit, contentDescription = null) },
-                modifier = Modifier.clickable { showEditorDialog = true }
-            )
-            HorizontalDivider()
-            ListItem(
-                headlineContent = { Text("Zvýraznění syntaxe") },
-                supportingContent = { Text("Spravovat mapování přípon a jazyků") },
-                leadingContent = { Icon(Icons.Rounded.Code, contentDescription = null) },
-                modifier = Modifier.clickable { showSyntaxScreen = true }
-            )
-            HorizontalDivider()
-            ListItem(
-                headlineContent = { Text("O aplikaci") },
-                leadingContent = { Icon(Icons.Rounded.Info, contentDescription = null) },
-                modifier = Modifier.clickable { onNavigateToAbout() }
-            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column {
+                    ListItem(
+                        headlineContent = { Text("Vzhled aplikace") },
+                        supportingContent = { Text(getThemeLabel(themePreference)) },
+                        leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                        modifier = Modifier.clickable { showThemeDialog = true }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                    ListItem(
+                        headlineContent = { Text("Hustota zobrazení") },
+                        supportingContent = { Text(getDensityLabel(densityPreference)) },
+                        leadingContent = { Icon(Icons.Rounded.ViewCompact, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                        modifier = Modifier.clickable { showDensityDialog = true }
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column {
+                    ListItem(
+                        headlineContent = { Text("Prohlížení souborů") },
+                        supportingContent = { Text("Skryté soubory, přípony, řazení") },
+                        leadingContent = { Icon(Icons.Rounded.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                        modifier = Modifier.clickable { showFileDialog = true }
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column {
+                    ListItem(
+                        headlineContent = { Text("Editor a kód") },
+                        supportingContent = { Text("Zalamování, čísla řádků") },
+                        leadingContent = { Icon(Icons.Rounded.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                        modifier = Modifier.clickable { showEditorDialog = true }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                    ListItem(
+                        headlineContent = { Text("Zvýraznění syntaxe") },
+                        supportingContent = { Text("Spravovat mapování") },
+                        leadingContent = { Icon(Icons.Rounded.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                        modifier = Modifier.clickable { showSyntaxScreen = true }
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                ListItem(
+                    headlineContent = { Text("O aplikaci") },
+                    leadingContent = { Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                    modifier = Modifier.clickable { onNavigateToAbout() }
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 
     if (showThemeDialog) {
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
-            title = { Text("Vybrat vzhled") },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            title = { Text("Vybrat vzhled", style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     ThemeMode.values().forEach { mode ->
@@ -151,7 +197,8 @@ fun SettingsScreen(
     if (showDensityDialog) {
         AlertDialog(
             onDismissRequest = { showDensityDialog = false },
-            title = { Text("Hustota zobrazení") },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            title = { Text("Hustota zobrazení", style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     UiDensity.values().forEach { density ->
@@ -193,7 +240,8 @@ fun SettingsScreen(
     if (showEditorDialog) {
         AlertDialog(
             onDismissRequest = { showEditorDialog = false },
-            title = { Text("Nastavení editoru") },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            title = { Text("Nastavení editoru", style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Row(
@@ -242,7 +290,8 @@ fun SettingsScreen(
     if (showFileDialog) {
         AlertDialog(
             onDismissRequest = { showFileDialog = false },
-            title = { Text("Prohlížení souborů") },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            title = { Text("Prohlížení souborů", style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Row(
@@ -314,16 +363,16 @@ fun SyntaxSettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Zvýraznění syntaxe") },
+            CenterAlignedTopAppBar(
+                title = { Text("Zvýraznění syntaxe", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět", tint = MaterialTheme.colorScheme.primary)
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.resetSyntaxMappings() }) {
-                        Text("Reset", modifier = Modifier.padding(end = 8.dp), color = MaterialTheme.colorScheme.primary)
+                        Text("Reset", modifier = Modifier.padding(end = 8.dp), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     }
                 }
             )
@@ -365,7 +414,8 @@ fun SyntaxSettingsScreen(
 
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            title = { Text("Přidat příponu") },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            title = { Text("Přidat příponu", style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column {
                     OutlinedTextField(
@@ -429,11 +479,11 @@ fun SyntaxSettingsScreen(
 fun AboutScreen(onNavigateBack: () -> Unit) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("O aplikaci") },
+            CenterAlignedTopAppBar(
+                title = { Text("O aplikaci", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             )
