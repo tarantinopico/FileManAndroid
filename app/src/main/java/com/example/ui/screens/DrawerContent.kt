@@ -36,7 +36,7 @@ fun DrawerContent(
             items(storageVolumes) { volume ->
                 DrawerItem(
                     title = volume.name,
-                    icon = if (volume.isPrimary) Icons.Rounded.Home else if (volume.isRemovable) Icons.Rounded.Add else Icons.Rounded.Info,
+                    icon = if (volume.isPrimary) Icons.Rounded.Smartphone else if (volume.isRemovable) Icons.Rounded.Usb else Icons.Rounded.SdStorage,
                     onClick = { onStorageVolumeClick(volume) }
                 )
             }

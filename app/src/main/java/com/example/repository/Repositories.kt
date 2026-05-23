@@ -39,8 +39,15 @@ class FileRepository {
         }
     }
 
+    private fun isValidFileName(name: String): Boolean {
+        if (name.isBlank()) return false
+        val invalidChars = arrayOf("<", ">", ":", "\"", "/", "\\", "|", "?", "*")
+        return invalidChars.none { name.contains(it) }
+    }
+
     suspend fun createFile(parentPath: String, name: String, content: String? = null): FileOperationResult = withContext(Dispatchers.IO) {
         try {
+            if (!isValidFileName(name)) return@withContext FileOperationResult.Error("Neplatný název")
             val newFile = File(parentPath, name)
             if (newFile.exists()) return@withContext FileOperationResult.Error("Soubor již existuje")
             
@@ -87,6 +94,7 @@ class FileRepository {
 
     suspend fun createFolder(parentPath: String, name: String): FileOperationResult = withContext(Dispatchers.IO) {
         try {
+            if (!isValidFileName(name)) return@withContext FileOperationResult.Error("Neplatný název")
             val newFolder = File(parentPath, name)
             if (newFolder.exists()) return@withContext FileOperationResult.Error("Složka již existuje")
             if (newFolder.mkdirs()) FileOperationResult.Success
@@ -109,6 +117,7 @@ class FileRepository {
 
     suspend fun renameFile(path: String, newName: String): FileOperationResult = withContext(Dispatchers.IO) {
         try {
+            if (!isValidFileName(newName)) return@withContext FileOperationResult.Error("Neplatný název")
             val file = File(path)
             if (!file.exists()) return@withContext FileOperationResult.Error("Soubor neexistuje")
             val newFile = File(file.parent, newName)
@@ -124,8 +133,17 @@ class FileRepository {
         try {
             val source = File(sourcePath)
             val destDir = File(destPath)
-            val dest = File(destDir, source.name)
-            if (dest.exists()) return@withContext FileOperationResult.Error("Soubor již existuje")
+            var dest = File(destDir, source.name)
+            
+            var counter = 1
+            while (dest.exists()) {
+                val nameWithoutExtension = source.nameWithoutExtension
+                val extension = source.extension
+                val newName = if (extension.isNotEmpty()) "$nameWithoutExtension ($counter).$extension" else "$nameWithoutExtension ($counter)"
+                dest = File(destDir, newName)
+                counter++
+            }
+            
             source.copyRecursively(dest)
             FileOperationResult.Success
         } catch (e: Exception) {
@@ -137,8 +155,21 @@ class FileRepository {
         try {
             val source = File(sourcePath)
             val destDir = File(destPath)
-            val dest = File(destDir, source.name)
-            if (dest.exists()) return@withContext FileOperationResult.Error("Soubor již existuje")
+            var dest = File(destDir, source.name)
+            
+            if (source.parentFile?.absolutePath == destDir.absolutePath) {
+                return@withContext FileOperationResult.Error("Cílová složka je stejná jako zdrojová")
+            }
+            
+            var counter = 1
+            while (dest.exists()) {
+                val nameWithoutExtension = source.nameWithoutExtension
+                val extension = source.extension
+                val newName = if (extension.isNotEmpty()) "$nameWithoutExtension ($counter).$extension" else "$nameWithoutExtension ($counter)"
+                dest = File(destDir, newName)
+                counter++
+            }
+            
             if (source.renameTo(dest)) {
                 FileOperationResult.Success
             } else {

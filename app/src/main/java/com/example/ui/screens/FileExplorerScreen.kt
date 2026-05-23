@@ -9,8 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +21,24 @@ import com.example.viewmodel.ClipboardState
 import com.example.viewmodel.FileManagerState
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.graphics.vector.ImageVector
+
+fun getIconForFile(file: FileModel): ImageVector {
+    if (file.isDirectory) return Icons.Rounded.Folder
+    
+    val ext = file.name.substringAfterLast('.', "").lowercase()
+    return when (ext) {
+        "jpg", "jpeg", "png", "gif", "bmp", "webp", "svg" -> Icons.Rounded.Image
+        "mp3", "wav", "ogg", "flac", "m4a", "aac" -> Icons.Rounded.AudioFile
+        "mp4", "mkv", "avi", "mov", "webm" -> Icons.Rounded.VideoFile
+        "pdf" -> Icons.Rounded.PictureAsPdf
+        "zip", "rar", "7z", "tar", "gz" -> Icons.Rounded.FolderZip
+        "txt", "md", "csv", "log" -> Icons.Rounded.Description
+        "kt", "java", "xml", "json", "py", "js", "html", "css", "cpp", "c", "h" -> Icons.Rounded.Code
+        "apk", "aab" -> Icons.Rounded.Android
+        else -> Icons.Rounded.InsertDriveFile
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -147,37 +163,41 @@ fun FileExplorerScreen(
                 HorizontalDivider()
             }
 
-            if (state.isLoading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (state.files.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Složka je prázdná", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(state.files, key = { it.path }) { file ->
-                        FileListItem(
-                            file = file,
-                            isFavorite = favorites.any { it.path == file.path },
-                            onClick = {
-                                if (file.isDirectory) {
-                                    onNavigate(file.path)
-                                } else {
-                                    onOpenFile(file)
-                                }
-                            },
-                            onRename = { onRename(file, it) },
-                            onDelete = { onDelete(file) },
-                            onCopy = { onCopy(file) },
-                            onMove = { onMove(file) },
-                            onToggleFavorite = { onToggleFavorite(file) }
-                        )
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (state.files.isEmpty() && !state.isLoading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Složka je prázdná", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    item {
-                        Spacer(modifier = Modifier.height(if (clipboard != null) 80.dp else 16.dp))
+                } else {
+                    val format = remember { SimpleDateFormat("dd. MM. yyyy HH:mm", Locale.getDefault()) }
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(state.files, key = { it.path }) { file ->
+                            FileListItem(
+                                file = file,
+                                isFavorite = favorites.any { it.path == file.path },
+                                format = format,
+                                onClick = {
+                                    if (file.isDirectory) {
+                                        onNavigate(file.path)
+                                    } else {
+                                        onOpenFile(file)
+                                    }
+                                },
+                                onRename = { onRename(file, it) },
+                                onDelete = { onDelete(file) },
+                                onCopy = { onCopy(file) },
+                                onMove = { onMove(file) },
+                                onToggleFavorite = { onToggleFavorite(file) }
+                            )
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(if (clipboard != null) 80.dp else 16.dp))
+                        }
                     }
+                }
+                
+                if (state.isLoading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter))
                 }
             }
         }
@@ -212,6 +232,7 @@ fun FileExplorerScreen(
 fun FileListItem(
     file: FileModel,
     isFavorite: Boolean,
+    format: SimpleDateFormat,
     onClick: () -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
@@ -223,8 +244,6 @@ fun FileListItem(
     var showRenameDialog by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    val format = remember { SimpleDateFormat("dd. MM. yyyy HH:mm", Locale.getDefault()) }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -234,7 +253,7 @@ fun FileListItem(
     ) {
         Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = if (file.isDirectory) Icons.Rounded.Folder else Icons.Rounded.InsertDriveFile,
+                imageVector = getIconForFile(file),
                 contentDescription = if (file.isDirectory) "Složka" else "Soubor",
                 tint = if (file.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(40.dp)
