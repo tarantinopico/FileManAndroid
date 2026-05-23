@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.text.format.Formatter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -13,7 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.model.AppPreferences
 import com.example.model.FavoriteModel
 import com.example.model.StorageVolumeModel
 
@@ -21,12 +24,17 @@ import com.example.model.StorageVolumeModel
 fun DrawerContent(
     storageVolumes: List<StorageVolumeModel>,
     favorites: List<FavoriteModel>,
+    appPreferences: AppPreferences,
     onStorageVolumeClick: (StorageVolumeModel) -> Unit,
     onFavoriteClick: (FavoriteModel) -> Unit,
     onEditFavorite: (FavoriteModel) -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val pinnedFavorites = favorites.filter { it.isPinned }
+    val regularFavorites = favorites.filter { !it.isPinned }
+
     ModalDrawerSheet(modifier = modifier) {
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
             item {
@@ -38,49 +46,50 @@ fun DrawerContent(
                 )
             }
             items(storageVolumes) { volume ->
+                val spaceText = if (volume.totalSpace > 0) {
+                    val free = Formatter.formatFileSize(context, volume.freeSpace)
+                    val total = Formatter.formatFileSize(context, volume.totalSpace)
+                    "$free volno z $total"
+                } else null
+                
                 DrawerItem(
                     title = volume.name,
+                    subtitle = if (appPreferences.showFreeSpace) spaceText else null,
                     icon = if (volume.isPrimary) Icons.Rounded.Smartphone else if (volume.isRemovable) Icons.Rounded.Usb else Icons.Rounded.SdStorage,
                     onClick = { onStorageVolumeClick(volume) }
                 )
             }
-            item {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-                Text(
-                    text = "Oblíbené",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
-                )
-            }
-            if (favorites.isEmpty()) {
+            
+            if (appPreferences.showPinned && pinnedFavorites.isNotEmpty()) {
                 item {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                     Text(
-                        text = "Žádné oblíbené",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                        text = "Připnuté složky",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
                     )
                 }
-            } else {
-                items(favorites) { favorite ->
-                    val iconVector = when(favorite.icon) {
-                        com.example.model.FavoriteIcon.FOLDER -> Icons.Rounded.Folder
-                        com.example.model.FavoriteIcon.STAR -> Icons.Rounded.Star
-                        com.example.model.FavoriteIcon.PROJECT -> Icons.Rounded.Work
-                        com.example.model.FavoriteIcon.DOWNLOAD -> Icons.Rounded.Download
-                        com.example.model.FavoriteIcon.IMAGE -> Icons.Rounded.Image
-                        com.example.model.FavoriteIcon.DOCUMENT -> Icons.Rounded.Description
-                    }
-                    DrawerItem(
-                        title = favorite.name,
-                        icon = iconVector,
-                        onClick = { onFavoriteClick(favorite) },
-                        onLongClick = { onEditFavorite(favorite) },
-                        enabled = favorite.isAvailable
-                    )
+                items(pinnedFavorites) { favorite ->
+                    DrawerFavoriteItem(favorite, onFavoriteClick, onEditFavorite)
                 }
             }
+
+            if (appPreferences.showFavorites && (regularFavorites.isNotEmpty() || (!appPreferences.showPinned && favorites.isNotEmpty()))) {
+                item {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                    Text(
+                        text = "Oblíbené",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
+                    )
+                }
+                items(if (appPreferences.showPinned) regularFavorites else favorites) { favorite ->
+                    DrawerFavoriteItem(favorite, onFavoriteClick, onEditFavorite)
+                }
+            }
+            
             item {
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -95,10 +104,35 @@ fun DrawerContent(
     }
 }
 
+@Composable
+fun DrawerFavoriteItem(
+    favorite: FavoriteModel,
+    onClick: (FavoriteModel) -> Unit,
+    onEdit: (FavoriteModel) -> Unit
+) {
+    val iconVector = when(favorite.icon) {
+        com.example.model.FavoriteIcon.FOLDER -> Icons.Rounded.Folder
+        com.example.model.FavoriteIcon.STAR -> Icons.Rounded.Star
+        com.example.model.FavoriteIcon.PROJECT -> Icons.Rounded.Work
+        com.example.model.FavoriteIcon.DOWNLOAD -> Icons.Rounded.Download
+        com.example.model.FavoriteIcon.IMAGE -> Icons.Rounded.Image
+        com.example.model.FavoriteIcon.DOCUMENT -> Icons.Rounded.Description
+        com.example.model.FavoriteIcon.PIN -> Icons.Rounded.PushPin
+    }
+    DrawerItem(
+        title = favorite.name,
+        icon = iconVector,
+        onClick = { onClick(favorite) },
+        onLongClick = { onEdit(favorite) },
+        enabled = favorite.isAvailable
+    )
+}
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun DrawerItem(
     title: String,
+    subtitle: String? = null,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
@@ -120,7 +154,7 @@ fun DrawerItem(
                 }
             }
             .heightIn(min = dimens.listItemHeight)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -131,11 +165,20 @@ fun DrawerItem(
                 modifier = Modifier.size(dimens.iconSize)
             )
             Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                color = contentColor
-            )
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = contentColor
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentColor.copy(alpha = 0.7f)
+                    )
+                }
+            }
         }
     }
 }

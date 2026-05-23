@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -62,7 +63,8 @@ class TextEditorViewModel(application: Application) : AndroidViewModel(applicati
         val extension = name.substringAfterLast('.', "")
         _uiState.update { it.copy(path = path, name = name, extension = extension, isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            fileRepository.readFileContent(path).onSuccess { text ->
+            val safeMode = settingsRepository.editorSettings.first().largeFileSafeModeEnabled
+            fileRepository.readFileContent(path, safeMode).onSuccess { text ->
                 val tfv = TextFieldValue(text)
                 _uiState.update {
                     it.copy(

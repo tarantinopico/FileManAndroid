@@ -64,7 +64,7 @@ class FileRepository {
         }
     }
 
-    suspend fun readFileContent(path: String): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun readFileContent(path: String, safeMode: Boolean = true): Result<String> = withContext(Dispatchers.IO) {
         try {
             val file = File(path)
             if (!file.exists() || !file.isFile) {
@@ -73,12 +73,12 @@ class FileRepository {
             if (!file.canRead()) {
                 return@withContext Result.failure(Exception("Nemáte oprávnění ke čtení tohoto souboru"))
             }
-            if (file.length() > 2 * 1024 * 1024) { // Increased to 2MB to handle larger files but still safe
-                return@withContext Result.failure(Exception("Soubor je příliš velký (max 2MB)"))
+            val limit = if (safeMode) 2 * 1024 * 1024L else 10 * 1024 * 1024L
+            if (file.length() > limit) {
+                return@withContext Result.failure(Exception("Soubor je příliš velký (max ${if (safeMode) "2MB v bezpečném režimu" else "10MB"})"))
             }
             
-            // Basic detection for binary files to avoid opening random garbage in text editor
-            if (file.length() > 0) {
+            if (safeMode && file.length() > 0) {
                 val input = file.inputStream()
                 val bytes = ByteArray(minOf(1024, file.length().toInt()))
                 val read = input.read(bytes)
@@ -89,7 +89,7 @@ class FileRepository {
                         if (bytes[i] == 0.toByte()) nullBytes++
                     }
                     if (nullBytes > 0) {
-                        return@withContext Result.failure(Exception("Soubor obsahuje binární data a nelze jej otevřít jako text"))
+                        return@withContext Result.failure(Exception("Soubor obsahuje binární data a nelze jej otevřít jako text (Safe mode)"))
                     }
                 }
             }
@@ -98,6 +98,8 @@ class FileRepository {
             Result.success(text)
         } catch (e: java.nio.charset.MalformedInputException) {
             Result.failure(Exception("Soubor má neplatné kódování textu"))
+        } catch (e: OutOfMemoryError) {
+            Result.failure(Exception("Nedostatek paměti pro načtení souboru. Extrémně velký obsah!"))
         } catch (e: Exception) {
             Result.failure(Exception("Nelze přečíst soubor: ${e.message}"))
         }
@@ -401,19 +403,24 @@ class StorageRepository(private val context: Context) {
                             name = if (volume.isPrimary) "Interní úložiště" else (volume.getDescription(context) ?: "Neznámé úložiště"),
                             path = path,
                             isPrimary = volume.isPrimary,
-                            isRemovable = volume.isRemovable
+                            isRemovable = volume.isRemovable,
+                            totalSpace = volume.directory?.totalSpace ?: 0L,
+                            freeSpace = volume.directory?.freeSpace ?: 0L
                         )
                     )
                 }
             }
         } else {
+            val defaultDir = Environment.getExternalStorageDirectory()
             volumes.add(
                 StorageVolumeModel(
                     id = "primary",
                     name = "Interní úložiště",
-                    path = Environment.getExternalStorageDirectory().absolutePath,
+                    path = defaultDir.absolutePath,
                     isPrimary = true,
-                    isRemovable = false
+                    isRemovable = false,
+                    totalSpace = defaultDir.totalSpace,
+                    freeSpace = defaultDir.freeSpace
                 )
             )
         }

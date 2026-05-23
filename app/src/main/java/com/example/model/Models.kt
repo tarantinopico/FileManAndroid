@@ -23,18 +23,21 @@ data class StorageVolumeModel(
     val name: String,
     val path: String,
     val isPrimary: Boolean,
-    val isRemovable: Boolean
+    val isRemovable: Boolean,
+    val totalSpace: Long = 0L,
+    val freeSpace: Long = 0L
 )
 
 enum class FavoriteIcon {
-    FOLDER, STAR, PROJECT, DOWNLOAD, IMAGE, DOCUMENT
+    FOLDER, STAR, PROJECT, DOWNLOAD, IMAGE, DOCUMENT, PIN
 }
 
 data class FavoriteModel(
     val path: String,
     val name: String,
     val isAvailable: Boolean = true,
-    val icon: FavoriteIcon = FavoriteIcon.FOLDER
+    val icon: FavoriteIcon = FavoriteIcon.FOLDER,
+    val isPinned: Boolean = false
 )
 
 enum class ThemeMode {
@@ -71,5 +74,27 @@ data class SyntaxMapping(
 data class EditorSettings(
     val wordWrap: Boolean = false,
     val showLineNumbers: Boolean = true,
-    val syntaxHighlightEnabled: Boolean = true
+    val syntaxHighlightEnabled: Boolean = true,
+    val activeLineHighlightEnabled: Boolean = true,
+    val editorToolbarEnabled: Boolean = true,
+    val autosaveEnabled: Boolean = false,
+    val largeFileSafeModeEnabled: Boolean = true,
+    val keyboardFriendlyBehavior: Boolean = true
+)
+
+data class AppPreferences(
+    val drawerEnabled: Boolean = true,
+    val showFavorites: Boolean = true,
+    val showPinned: Boolean = true,
+    val showRecents: Boolean = true,
+    val openLastLocationOnStartup: Boolean = false,
+    val lastOpenedLocation: String? = null,
+    val imageThumbnailsEnabled: Boolean = true,
+    val showFileBadges: Boolean = true,
+    val badgeColorEnabled: Boolean = true,
+    val confirmDeletions: Boolean = true,
+    val multiSelectEnabled: Boolean = true,
+    val detailPanelsEnabled: Boolean = true,
+    val showFreeSpace: Boolean = true,
+    val compactListMode: Boolean = false
 )

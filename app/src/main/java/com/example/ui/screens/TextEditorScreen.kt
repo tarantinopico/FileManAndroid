@@ -224,6 +224,58 @@ fun TextEditorScreen(
                     }
                 }
             }
+        },
+        bottomBar = {
+            if (editorSettings.editorToolbarEnabled && state.errorMessage == null && !state.isLoading) {
+                BottomAppBar(
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    modifier = Modifier.imePadding()
+                ) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    IconButton(onClick = {
+                        val current = state.textFieldValue
+                        // Insert tab at cursor
+                        val textStr = current.text
+                        val selection = current.selection
+                        if (selection.collapsed) {
+                            val newText = textStr.substring(0, selection.start) + "\t" + textStr.substring(selection.start)
+                            val newSelection = androidx.compose.ui.text.TextRange(selection.start + 1)
+                            viewModel.onContentChanged(androidx.compose.ui.text.input.TextFieldValue(newText, newSelection))
+                        }
+                    }) {
+                        Icon(Icons.Rounded.SpaceBar, contentDescription = "Vložit tabulátor")
+                    }
+                    IconButton(onClick = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        val selText = state.textFieldValue.text.substring(state.textFieldValue.selection.start, state.textFieldValue.selection.end)
+                        if (selText.isNotEmpty()) {
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("text", selText))
+                        } else {
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("text", state.textFieldValue.text))
+                        }
+                    }) {
+                        Icon(Icons.Rounded.ContentCopy, contentDescription = "Kopírovat")
+                    }
+                    IconButton(onClick = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        val clip = clipboard.primaryClip
+                        if (clip != null && clip.itemCount > 0) {
+                            val text = clip.getItemAt(0).text?.toString() ?: ""
+                            val current = state.textFieldValue
+                            val txt = current.text
+                            val newText = txt.substring(0, current.selection.start) + text + txt.substring(current.selection.end)
+                            val newSelection = androidx.compose.ui.text.TextRange(current.selection.start + text.length)
+                            viewModel.onContentChanged(androidx.compose.ui.text.input.TextFieldValue(newText, newSelection))
+                        }
+                    }) {
+                        Icon(Icons.Rounded.ContentPaste, contentDescription = "Vložit")
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    // Format lines length stats
+                    Text("${state.textFieldValue.text.lines().size} řádků", style = MaterialTheme.typography.labelSmall)
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
+            }
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
@@ -328,8 +380,15 @@ fun TextEditorScreen(
                             fontSize = 14.sp
                         ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        visualTransformation = if (editorSettings.syntaxHighlightEnabled) {
-                            SyntaxVisualTransformation(langName, state.findQuery)
+                        visualTransformation = if (editorSettings.syntaxHighlightEnabled || editorSettings.activeLineHighlightEnabled) {
+                            val activeColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            SyntaxVisualTransformation(
+                                extension = langName, 
+                                findQuery = state.findQuery, 
+                                activeLineHighlightEnabled = editorSettings.activeLineHighlightEnabled, 
+                                activeLineIndex = currentLineIndex, 
+                                activeLineColor = activeColor
+                            )
                         } else {
                             androidx.compose.ui.text.input.VisualTransformation.None
                         }

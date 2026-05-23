@@ -32,7 +32,10 @@ data class FileManagerState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val selectedFiles: Set<String> = emptySet(),
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val searchResults: List<FileModel>? = null,
+    val historyBackStack: List<String> = emptyList(),
+    val historyForwardStack: List<String> = emptyList()
 )
 
 sealed class UiEvent {
@@ -67,6 +70,11 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         initialValue = com.example.model.FileSettings()
     )
     val favorites = settingsRepository.favorites
+    val appPreferences = settingsRepository.appPreferences.stateIn(
+        scope = viewModelScope,
+        started = kotlinx.coroutines.flow.SharingStarted.Eagerly,
+        initialValue = com.example.model.AppPreferences()
+    )
 
     init {
         checkPermission()
@@ -74,9 +82,28 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             fileSettings.collect {
                 if (_uiState.value.currentPath.isNotEmpty()) {
-                    loadDirectory(_uiState.value.currentPath)
+                    loadDirectory(_uiState.value.currentPath, addToHistory = false)
                 }
             }
+        }
+        
+        viewModelScope.launch {
+            appPreferences.collect { prefs ->
+                if (_hasPermission.value && _uiState.value.currentPath.isEmpty()) {
+                    if (prefs.openLastLocationOnStartup && !prefs.lastOpenedLocation.isNullOrEmpty()) {
+                        loadDirectory(prefs.lastOpenedLocation, addToHistory = true)
+                    } else {
+                        val primary = storageVolumes.value.find { it.isPrimary }?.path ?: fileRepository.getRootPath()
+                        loadDirectory(primary, addToHistory = true)
+                    }
+                }
+            }
+        }
+    }
+
+    fun updateAppPreferences(prefs: com.example.model.AppPreferences) {
+        viewModelScope.launch {
+            settingsRepository.updateAppPreferences(prefs)
         }
     }
 
@@ -145,13 +172,19 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun checkPermission() {
         val granted = Environment.isExternalStorageManager()
         _hasPermission.value = granted
-        if (granted && _uiState.value.currentPath.isEmpty()) {
-            val primary = storageVolumes.value.find { it.isPrimary }?.path ?: fileRepository.getRootPath()
-            loadDirectory(primary)
-        }
+        // Initialization logic is now partially handled by the appPreferences collector
     }
 
-    fun loadDirectory(path: String) {
+    fun loadDirectory(path: String, addToHistory: Boolean = true) {
+        val oldPath = _uiState.value.currentPath
+        val backStack = _uiState.value.historyBackStack.toMutableList()
+        val forwardStack = _uiState.value.historyForwardStack.toMutableList()
+        
+        if (addToHistory && oldPath.isNotEmpty() && oldPath != path) {
+            backStack.add(oldPath)
+            forwardStack.clear()
+        }
+        
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             fileRepository.listFiles(path).onSuccess { files ->
@@ -161,6 +194,9 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
                 
                 val filteredAndSorted = applyFileSettings(files)
                 
+                // save last opened location
+                settingsRepository.setLastOpenedLocation(path)
+                
                 val parentPath = if (path == rootPathForVolume) null else java.io.File(path).parent
                 _uiState.update {
                     it.copy(
@@ -168,7 +204,11 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
                         parentPath = parentPath,
                         files = filteredAndSorted,
                         breadcrumbs = buildBreadcrumbs(rootPathForVolume, path, currentVolume?.name ?: "Domů"),
-                        isLoading = false
+                        isLoading = false,
+                        historyBackStack = backStack,
+                        historyForwardStack = forwardStack,
+                        searchQuery = "", // Clear search on navigation
+                        searchResults = null
                     )
                 }
             }.onFailure { e ->
@@ -200,6 +240,32 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun navigateUp() {
         _uiState.value.parentPath?.let { loadDirectory(it) }
+    }
+    
+    fun navigateBack() {
+        val stack = _uiState.value.historyBackStack
+        if (stack.isNotEmpty()) {
+            val prev = stack.last()
+            val newBackStack = stack.dropLast(1)
+            val newForwardStack = listOf(_uiState.value.currentPath) + _uiState.value.historyForwardStack
+            
+            _uiState.update { it.copy(historyBackStack = newBackStack, historyForwardStack = newForwardStack) }
+            loadDirectory(prev, addToHistory = false)
+        } else {
+            navigateUp()
+        }
+    }
+    
+    fun navigateForward() {
+        val stack = _uiState.value.historyForwardStack
+        if (stack.isNotEmpty()) {
+            val next = stack.first()
+            val newForwardStack = stack.drop(1)
+            val newBackStack = _uiState.value.historyBackStack + _uiState.value.currentPath
+            
+            _uiState.update { it.copy(historyBackStack = newBackStack, historyForwardStack = newForwardStack) }
+            loadDirectory(next, addToHistory = false)
+        }
     }
 
     fun createFolder(name: String) {
@@ -338,7 +404,12 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun setSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        _uiState.update { state -> 
+            val newResults = if (query.isNotBlank()) {
+                state.files.filter { it.name.contains(query, ignoreCase = true) }
+            } else null
+            state.copy(searchQuery = query, searchResults = newResults) 
+        }
     }
 
     fun deleteSelected() {

@@ -36,6 +36,7 @@ fun MainScreen(
     val clipboard by viewModel.clipboard.collectAsStateWithLifecycle()
     val syntaxMappings by viewModel.syntaxMappings.collectAsStateWithLifecycle(initialValue = emptyList())
     val fileSettings by viewModel.fileSettings.collectAsStateWithLifecycle()
+    val appPreferences by viewModel.appPreferences.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -117,14 +118,15 @@ fun MainScreen(
                         items(icons.size) { index ->
                             val icon = icons[index]
                             val isSelected = icon == selectedIcon
-                            val iconVector = when(icon) {
-                                com.example.model.FavoriteIcon.FOLDER -> Icons.Rounded.Folder
-                                com.example.model.FavoriteIcon.STAR -> Icons.Rounded.Star
-                                com.example.model.FavoriteIcon.PROJECT -> Icons.Rounded.Work
-                                com.example.model.FavoriteIcon.DOWNLOAD -> Icons.Rounded.Download
-                                com.example.model.FavoriteIcon.IMAGE -> Icons.Rounded.Image
-                                com.example.model.FavoriteIcon.DOCUMENT -> Icons.Rounded.Description
-                            }
+                                val iconVector = when(icon) {
+                                    com.example.model.FavoriteIcon.FOLDER -> Icons.Rounded.Folder
+                                    com.example.model.FavoriteIcon.STAR -> Icons.Rounded.Star
+                                    com.example.model.FavoriteIcon.PROJECT -> Icons.Rounded.Work
+                                    com.example.model.FavoriteIcon.DOWNLOAD -> Icons.Rounded.Download
+                                    com.example.model.FavoriteIcon.IMAGE -> Icons.Rounded.Image
+                                    com.example.model.FavoriteIcon.DOCUMENT -> Icons.Rounded.Description
+                                    com.example.model.FavoriteIcon.PIN -> Icons.Rounded.PushPin
+                                }
                             
                             Box(
                                 modifier = Modifier
@@ -163,9 +165,11 @@ fun MainScreen(
     }
 
     if (hasPermission) {
-        BackHandler(enabled = drawerState.isOpen || uiState.parentPath != null) {
+        BackHandler(enabled = drawerState.isOpen || uiState.historyBackStack.isNotEmpty() || uiState.parentPath != null) {
             if (drawerState.isOpen) {
                 scope.launch { drawerState.close() }
+            } else if (uiState.historyBackStack.isNotEmpty()) {
+                viewModel.navigateBack()
             } else {
                 viewModel.navigateUp()
             }
@@ -211,27 +215,31 @@ fun MainScreen(
 
         ModalNavigationDrawer(
             drawerState = drawerState,
+            gesturesEnabled = appPreferences.drawerEnabled,
             drawerContent = {
-                DrawerContent(
-                    storageVolumes = storageVolumes,
-                    favorites = favorites,
-                    onStorageVolumeClick = { volume ->
-                        scope.launch { drawerState.close() }
-                        viewModel.loadDirectory(volume.path)
-                    },
-                    onFavoriteClick = { favorite ->
-                        scope.launch { drawerState.close() }
-                        viewModel.loadDirectory(favorite.path)
-                    },
-                    onEditFavorite = { favorite ->
-                        scope.launch { drawerState.close() }
-                        showFavoriteEditDialogFor = favorite
-                    },
-                    onSettingsClick = {
-                        scope.launch { drawerState.close() }
-                        onNavigateToSettings()
-                    }
-                )
+                if (appPreferences.drawerEnabled) {
+                    DrawerContent(
+                        storageVolumes = storageVolumes,
+                        favorites = favorites,
+                        appPreferences = appPreferences,
+                        onStorageVolumeClick = { volume ->
+                            scope.launch { drawerState.close() }
+                            viewModel.loadDirectory(volume.path)
+                        },
+                        onFavoriteClick = { favorite ->
+                            scope.launch { drawerState.close() }
+                            viewModel.loadDirectory(favorite.path)
+                        },
+                        onEditFavorite = { favorite ->
+                            scope.launch { drawerState.close() }
+                            showFavoriteEditDialogFor = favorite
+                        },
+                        onSettingsClick = {
+                            scope.launch { drawerState.close() }
+                            onNavigateToSettings()
+                        }
+                    )
+                }
             }
         ) {
             FileExplorerScreen(
@@ -239,9 +247,12 @@ fun MainScreen(
                 favorites = favorites,
                 clipboard = clipboard,
                 fileSettings = fileSettings,
+                appPreferences = appPreferences,
                 syntaxMappings = syntaxMappings,
                 onNavigate = { path -> viewModel.loadDirectory(path) },
                 onNavigateUp = { viewModel.navigateUp() },
+                onNavigateBack = { viewModel.navigateBack() },
+                onNavigateForward = { viewModel.navigateForward() },
                 onCreateFolder = { name -> viewModel.createFolder(name) },
                 onCreateFile = { name -> viewModel.createFile(name) },
                 onDelete = { file -> viewModel.deleteItem(file) },

@@ -35,20 +35,38 @@ object SyntaxHighlighter {
     private val colorKey = Color(0xFFE5C07B)
     private val colorFind = Color(0xFFD32F2F) 
     
-    fun highlight(text: String, extension: String, findQuery: String = ""): AnnotatedString {
+    fun highlight(text: String, extension: String, findQuery: String = "", activeLineHighlightEnabled: Boolean = false, activeLineIndex: Int = -1, activeLineColor: Color = Color.Transparent): AnnotatedString {
         // FAST FALLBACK FOR LARGE FILES (e.g. > 20KB) or binary data
         if (text.length > 20000 || text.contains('\u0000')) {
-            return highlightFindOnly(text, findQuery)
+            return highlightFindOnly(text, findQuery, activeLineHighlightEnabled, activeLineIndex, activeLineColor)
         }
         
         return buildAnnotatedString {
             append(text)
             val ext = extension.lowercase()
             
+            if (activeLineHighlightEnabled && activeLineIndex >= 0) {
+                var currentLine = 0
+                var lineStart = 0
+                var i = 0
+                while (i < text.length) {
+                    if (text[i] == '\n' || i == text.length - 1) {
+                        val lineEnd = if (text[i] == '\n') i else i + 1
+                        if (currentLine == activeLineIndex) {
+                            addStyle(SpanStyle(background = activeLineColor), lineStart, lineEnd)
+                            break
+                        }
+                        currentLine++
+                        lineStart = i + 1
+                    }
+                    i++
+                }
+            }
+            
             try {
                 // If there's an extremely long line, bypass to avoid freezing
                 if (text.length > 1000 && text.lines().any { it.length > 500 }) {
-                    return highlightFindOnly(text, findQuery)
+                    return highlightFindOnly(text, findQuery, activeLineHighlightEnabled, activeLineIndex, activeLineColor)
                 }
                 
                 when (ext) {
@@ -112,18 +130,38 @@ object SyntaxHighlighter {
         }
     }
     
-    private fun highlightFindOnly(text: String, findQuery: String): AnnotatedString {
-        if (findQuery.isEmpty()) return AnnotatedString(text)
+    private fun highlightFindOnly(text: String, findQuery: String, activeLineHighlightEnabled: Boolean = false, activeLineIndex: Int = -1, activeLineColor: Color = Color.Transparent): AnnotatedString {
         return buildAnnotatedString {
             append(text)
-            var index = text.indexOf(findQuery, ignoreCase = true)
-            while (index >= 0) {
-                addStyle(
-                    SpanStyle(background = colorFind, color = Color.White),
-                    index,
-                    index + findQuery.length
-                )
-                index = text.indexOf(findQuery, index + findQuery.length, ignoreCase = true)
+            
+            if (activeLineHighlightEnabled && activeLineIndex >= 0) {
+                var currentLine = 0
+                var lineStart = 0
+                var i = 0
+                while (i < text.length) {
+                    if (text[i] == '\n' || i == text.length - 1) {
+                        val lineEnd = if (text[i] == '\n') i else i + 1
+                        if (currentLine == activeLineIndex) {
+                            addStyle(SpanStyle(background = activeLineColor), lineStart, lineEnd)
+                            break
+                        }
+                        currentLine++
+                        lineStart = i + 1
+                    }
+                    i++
+                }
+            }
+            
+            if (findQuery.isNotEmpty()) {
+                var index = text.indexOf(findQuery, ignoreCase = true)
+                while (index >= 0) {
+                    addStyle(
+                        SpanStyle(background = colorFind, color = Color.White),
+                        index,
+                        index + findQuery.length
+                    )
+                    index = text.indexOf(findQuery, index + findQuery.length, ignoreCase = true)
+                }
             }
         }
     }
@@ -131,10 +169,13 @@ object SyntaxHighlighter {
 
 class SyntaxVisualTransformation(
     private val extension: String,
-    private val findQuery: String = ""
+    private val findQuery: String = "",
+    private val activeLineHighlightEnabled: Boolean = false,
+    private val activeLineIndex: Int = -1,
+    private val activeLineColor: Color = Color.Transparent
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
-        val highlighted = SyntaxHighlighter.highlight(text.text, extension, findQuery)
+        val highlighted = SyntaxHighlighter.highlight(text.text, extension, findQuery, activeLineHighlightEnabled, activeLineIndex, activeLineColor)
         return TransformedText(highlighted, OffsetMapping.Identity)
     }
 }

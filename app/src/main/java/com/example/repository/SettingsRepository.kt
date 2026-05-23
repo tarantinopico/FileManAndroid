@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.model.AppPreferences
 import com.example.model.EditorSettings
 import com.example.model.FavoriteModel
 import com.example.model.SyntaxLanguage
@@ -27,12 +28,33 @@ class SettingsRepository(private val context: Context) {
     private val EDITOR_WORD_WRAP = booleanPreferencesKey("editor_word_wrap")
     private val EDITOR_LINE_NUMBERS = booleanPreferencesKey("editor_line_numbers")
     private val EDITOR_HIGHLIGHT = booleanPreferencesKey("editor_highlight")
+    private val EDITOR_ACTIVE_LINE = booleanPreferencesKey("editor_active_line")
+    private val EDITOR_TOOLBAR = booleanPreferencesKey("editor_toolbar")
+    private val EDITOR_AUTOSAVE = booleanPreferencesKey("editor_autosave")
+    private val EDITOR_LARGE_FILE_SAFE = booleanPreferencesKey("editor_large_file_safe")
+    private val EDITOR_KEYBOARD_FRIENDLY = booleanPreferencesKey("editor_keyboard_friendly")
     private val SYNTAX_MAPPINGS = stringPreferencesKey("syntax_mappings")
     
     // File Settings
     private val FILE_SHOW_HIDDEN = booleanPreferencesKey("file_show_hidden")
     private val FILE_SHOW_EXTENSIONS = booleanPreferencesKey("file_show_extensions")
     private val FILE_SORT_OPTION = stringPreferencesKey("file_sort_option")
+
+    // App Preferences
+    private val APP_DRAWER_ENABLED = booleanPreferencesKey("app_drawer_enabled")
+    private val APP_SHOW_FAVORITES = booleanPreferencesKey("app_show_favorites")
+    private val APP_SHOW_PINNED = booleanPreferencesKey("app_show_pinned")
+    private val APP_SHOW_RECENTS = booleanPreferencesKey("app_show_recents")
+    private val APP_START_LAST_LOC = booleanPreferencesKey("app_start_last_loc")
+    private val APP_LAST_LOC = stringPreferencesKey("app_last_loc")
+    private val APP_THUMBNAILS = booleanPreferencesKey("app_thumbnails")
+    private val APP_BADGES = booleanPreferencesKey("app_badges")
+    private val APP_BADGE_COLORS = booleanPreferencesKey("app_badge_colors")
+    private val APP_CONFIRM_DEL = booleanPreferencesKey("app_confirm_del")
+    private val APP_MULTI_SELECT = booleanPreferencesKey("app_multi_select")
+    private val APP_DETAIL_PANELS = booleanPreferencesKey("app_detail_panels")
+    private val APP_SHOW_FREE_SPACE = booleanPreferencesKey("app_show_free_space")
+    private val APP_COMPACT_LIST = booleanPreferencesKey("app_compact_list")
 
     val themePreference: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         when (prefs[THEME_KEY]) {
@@ -68,14 +90,15 @@ class SettingsRepository(private val context: Context) {
         val items = prefs[FAVORITE_ITEMS_KEY] ?: emptySet()
         
         val parsedItems = items.mapNotNull { 
-            val parts = it.split("|", limit = 3)
-            if (parts.size == 3) {
+            val parts = it.split("|", limit = 4)
+            if (parts.size >= 3) {
                 val file = File(parts[0])
                 FavoriteModel(
                     path = parts[0],
                     name = parts[1],
                     isAvailable = file.exists(),
-                    icon = try { com.example.model.FavoriteIcon.valueOf(parts[2]) } catch (e: Exception) { com.example.model.FavoriteIcon.FOLDER }
+                    icon = try { com.example.model.FavoriteIcon.valueOf(parts[2]) } catch (e: Exception) { com.example.model.FavoriteIcon.FOLDER },
+                    isPinned = try { parts.getOrNull(3)?.toBoolean() ?: false } catch (e: Exception) { false }
                 )
             } else null
         }
@@ -94,7 +117,8 @@ class SettingsRepository(private val context: Context) {
                 path = path,
                 name = file.name.ifEmpty { path },
                 isAvailable = file.exists(),
-                icon = com.example.model.FavoriteIcon.STAR
+                icon = com.example.model.FavoriteIcon.STAR,
+                isPinned = false
             )
         }
     }
@@ -104,7 +128,7 @@ class SettingsRepository(private val context: Context) {
             val current = prefs[FAVORITE_ITEMS_KEY] ?: emptySet()
             // remove if path already exists to overwrite
             val filtered = current.filter { !it.startsWith("${favorite.path}|") }.toMutableSet()
-            filtered.add("${favorite.path}|${favorite.name}|${favorite.icon.name}")
+            filtered.add("${favorite.path}|${favorite.name}|${favorite.icon.name}|${favorite.isPinned}")
             prefs[FAVORITE_ITEMS_KEY] = filtered
         }
     }
@@ -126,7 +150,12 @@ class SettingsRepository(private val context: Context) {
         EditorSettings(
             wordWrap = prefs[EDITOR_WORD_WRAP] ?: false,
             showLineNumbers = prefs[EDITOR_LINE_NUMBERS] ?: true,
-            syntaxHighlightEnabled = prefs[EDITOR_HIGHLIGHT] ?: true
+            syntaxHighlightEnabled = prefs[EDITOR_HIGHLIGHT] ?: true,
+            activeLineHighlightEnabled = prefs[EDITOR_ACTIVE_LINE] ?: true,
+            editorToolbarEnabled = prefs[EDITOR_TOOLBAR] ?: true,
+            autosaveEnabled = prefs[EDITOR_AUTOSAVE] ?: false,
+            largeFileSafeModeEnabled = prefs[EDITOR_LARGE_FILE_SAFE] ?: true,
+            keyboardFriendlyBehavior = prefs[EDITOR_KEYBOARD_FRIENDLY] ?: true
         )
     }
 
@@ -135,6 +164,11 @@ class SettingsRepository(private val context: Context) {
             prefs[EDITOR_WORD_WRAP] = settings.wordWrap
             prefs[EDITOR_LINE_NUMBERS] = settings.showLineNumbers
             prefs[EDITOR_HIGHLIGHT] = settings.syntaxHighlightEnabled
+            prefs[EDITOR_ACTIVE_LINE] = settings.activeLineHighlightEnabled
+            prefs[EDITOR_TOOLBAR] = settings.editorToolbarEnabled
+            prefs[EDITOR_AUTOSAVE] = settings.autosaveEnabled
+            prefs[EDITOR_LARGE_FILE_SAFE] = settings.largeFileSafeModeEnabled
+            prefs[EDITOR_KEYBOARD_FRIENDLY] = settings.keyboardFriendlyBehavior
         }
     }
 
@@ -190,6 +224,50 @@ class SettingsRepository(private val context: Context) {
             prefs[FILE_SHOW_HIDDEN] = settings.showHiddenFiles
             prefs[FILE_SHOW_EXTENSIONS] = settings.showFileExtensions
             prefs[FILE_SORT_OPTION] = settings.sortOption.name
+        }
+    }
+
+    val appPreferences: Flow<AppPreferences> = context.dataStore.data.map { prefs ->
+        AppPreferences(
+            drawerEnabled = prefs[APP_DRAWER_ENABLED] ?: true,
+            showFavorites = prefs[APP_SHOW_FAVORITES] ?: true,
+            showPinned = prefs[APP_SHOW_PINNED] ?: true,
+            showRecents = prefs[APP_SHOW_RECENTS] ?: true,
+            openLastLocationOnStartup = prefs[APP_START_LAST_LOC] ?: false,
+            lastOpenedLocation = prefs[APP_LAST_LOC],
+            imageThumbnailsEnabled = prefs[APP_THUMBNAILS] ?: true,
+            showFileBadges = prefs[APP_BADGES] ?: true,
+            badgeColorEnabled = prefs[APP_BADGE_COLORS] ?: true,
+            confirmDeletions = prefs[APP_CONFIRM_DEL] ?: true,
+            multiSelectEnabled = prefs[APP_MULTI_SELECT] ?: true,
+            detailPanelsEnabled = prefs[APP_DETAIL_PANELS] ?: true,
+            showFreeSpace = prefs[APP_SHOW_FREE_SPACE] ?: true,
+            compactListMode = prefs[APP_COMPACT_LIST] ?: false
+        )
+    }
+
+    suspend fun updateAppPreferences(preferences: AppPreferences) {
+        context.dataStore.edit { prefs ->
+            prefs[APP_DRAWER_ENABLED] = preferences.drawerEnabled
+            prefs[APP_SHOW_FAVORITES] = preferences.showFavorites
+            prefs[APP_SHOW_PINNED] = preferences.showPinned
+            prefs[APP_SHOW_RECENTS] = preferences.showRecents
+            prefs[APP_START_LAST_LOC] = preferences.openLastLocationOnStartup
+            preferences.lastOpenedLocation?.let { prefs[APP_LAST_LOC] = it } ?: prefs.remove(APP_LAST_LOC)
+            prefs[APP_THUMBNAILS] = preferences.imageThumbnailsEnabled
+            prefs[APP_BADGES] = preferences.showFileBadges
+            prefs[APP_BADGE_COLORS] = preferences.badgeColorEnabled
+            prefs[APP_CONFIRM_DEL] = preferences.confirmDeletions
+            prefs[APP_MULTI_SELECT] = preferences.multiSelectEnabled
+            prefs[APP_DETAIL_PANELS] = preferences.detailPanelsEnabled
+            prefs[APP_SHOW_FREE_SPACE] = preferences.showFreeSpace
+            prefs[APP_COMPACT_LIST] = preferences.compactListMode
+        }
+    }
+
+    suspend fun setLastOpenedLocation(path: String) {
+        context.dataStore.edit { prefs ->
+            prefs[APP_LAST_LOC] = path
         }
     }
 

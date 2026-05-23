@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -71,9 +72,12 @@ fun FileExplorerScreen(
     favorites: List<FavoriteModel>,
     clipboard: ClipboardState?,
     fileSettings: com.example.model.FileSettings,
+    appPreferences: com.example.model.AppPreferences,
     syntaxMappings: List<com.example.model.SyntaxMapping>,
     onNavigate: (String) -> Unit,
     onNavigateUp: () -> Unit,
+    onNavigateBack: () -> Unit,
+    onNavigateForward: () -> Unit,
     onCreateFolder: (String) -> Unit,
     onCreateFile: (String) -> Unit,
     onDelete: (FileModel) -> Unit,
@@ -111,6 +115,8 @@ fun FileExplorerScreen(
     var showBulkRenameDialog by remember { mutableStateOf(false) }
     var showFavoriteDialogFor by remember { mutableStateOf<FileModel?>(null) }
     var decryptTarget by remember { mutableStateOf<FileModel?>(null) }
+    var deleteTarget by remember { mutableStateOf<FileModel?>(null) }
+    var batchDeleteConfirm by remember { mutableStateOf(false) }
     
     val isMultiSelect = state.selectedFiles.isNotEmpty()
     val isSearchMode = state.searchQuery.isNotEmpty()
@@ -139,7 +145,13 @@ fun FileExplorerScreen(
                         IconButton(onClick = { onBatchMove(state.files.filter { state.selectedFiles.contains(it.path) }) }) {
                             Icon(Icons.Rounded.DriveFileMove, contentDescription = "Přesunout vybrané")
                         }
-                        IconButton(onClick = onBatchDelete) {
+                        IconButton(onClick = {
+                            if (appPreferences.confirmDeletions) {
+                                batchDeleteConfirm = true
+                            } else {
+                                onBatchDelete()
+                            }
+                        }) {
                             Icon(Icons.Rounded.Delete, contentDescription = "Smazat vybrané", tint = MaterialTheme.colorScheme.error)
                         }
                         Box {
@@ -222,6 +234,12 @@ fun FileExplorerScreen(
                         }
                     },
                     actions = {
+                        IconButton(onClick = onNavigateBack, enabled = state.historyBackStack.isNotEmpty()) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Zpět v historii", tint = if (state.historyBackStack.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = onNavigateForward, enabled = state.historyForwardStack.isNotEmpty()) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "Vpřed v historii", tint = if (state.historyForwardStack.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         IconButton(onClick = { showSearch = true }) {
                             Icon(Icons.Rounded.Search, contentDescription = "Hledat", tint = MaterialTheme.colorScheme.primary)
                         }
@@ -337,6 +355,7 @@ fun FileExplorerScreen(
                                 isMultiSelectMode = isMultiSelect,
                                 showExtensions = fileSettings.showFileExtensions,
                                 syntaxMappings = syntaxMappings,
+                                appPreferences = appPreferences,
                                 onClick = {
                                     if (isMultiSelect) {
                                         onToggleSelection(file.path)
@@ -354,7 +373,13 @@ fun FileExplorerScreen(
                                     }
                                 },
                                 onRename = { onRename(file, it) },
-                                onDelete = { onDelete(file) },
+                                onDelete = {
+                                    if (appPreferences.confirmDeletions) {
+                                        deleteTarget = file
+                                    } else {
+                                        onDelete(file)
+                                    }
+                                },
                                 onCopy = { onCopy(file) },
                                 onMove = { onMove(file) },
                                 onToggleFavorite = {
@@ -412,6 +437,26 @@ fun FileExplorerScreen(
     
     if (decryptTarget != null) {
         InputDialog(title = "Zadat heslo pro dešifrování", initialValue = "", isPassword = true, onConfirm = { onDecryptFile(decryptTarget!!, it); decryptTarget = null }, onDismiss = { decryptTarget = null })
+    }
+
+    if (deleteTarget != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Smazat soubor?") },
+            text = { Text("Opravdu chcete smazat '${deleteTarget?.name}'?") },
+            confirmButton = { TextButton(onClick = { deleteTarget?.let(onDelete); deleteTarget = null }) { Text("Smazat", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Zrušit") } }
+        )
+    }
+
+    if (batchDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { batchDeleteConfirm = false },
+            title = { Text("Smazat vybrané?") },
+            text = { Text("Opravdu chcete smazat všechny vybrané soubory (${state.selectedFiles.size})?") },
+            confirmButton = { TextButton(onClick = { onBatchDelete(); batchDeleteConfirm = false }) { Text("Smazat", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { batchDeleteConfirm = false }) { Text("Zrušit") } }
+        )
     }
 
     if (showFavoriteDialogFor != null) {
@@ -495,6 +540,7 @@ fun FileListItem(
     isMultiSelectMode: Boolean,
     showExtensions: Boolean,
     syntaxMappings: List<com.example.model.SyntaxMapping>,
+    appPreferences: com.example.model.AppPreferences,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onRename: (String) -> Unit,
@@ -515,16 +561,19 @@ fun FileListItem(
 
     val dimens = com.example.ui.theme.LocalAppDimens.current
     val ext = file.name.substringAfterLast('.', "").lowercase()
+    
+    val itemHeight = if (appPreferences.compactListMode) dimens.listItemHeight * 0.75f else dimens.listItemHeight
+    val vPadding = if (appPreferences.compactListMode) 4.dp else dimens.paddingMedium
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = dimens.listItemHeight)
+            .heightIn(min = itemHeight)
             .padding(horizontal = dimens.paddingMedium, vertical = 2.dp)
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
             .background(bgColor)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = dimens.paddingMedium, vertical = dimens.paddingMedium),
+            .padding(horizontal = dimens.paddingMedium, vertical = vPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isMultiSelectMode) {
@@ -538,7 +587,7 @@ fun FileListItem(
         Box(modifier = Modifier.size(dimens.iconSize * 1.5f), contentAlignment = Alignment.Center) {
             val isImage = !file.isDirectory && ext in listOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
             
-            if (isImage) {
+            if (isImage && appPreferences.imageThumbnailsEnabled) {
                 coil.compose.AsyncImage(
                     model = java.io.File(file.path),
                     contentDescription = "Náhled",
@@ -589,7 +638,7 @@ fun FileListItem(
                     modifier = Modifier.weight(1f, fill = false)
                 )
                 
-                if (showBadge) {
+                if (showBadge && appPreferences.showFileBadges) {
                     Spacer(modifier = Modifier.width(6.dp))
                     val customColor = syntaxMappings.find { it.extension.lowercase() == ext }?.tagColorArgb?.let { Color(it) } ?: getColorForExtension(ext)
                     Box(
@@ -609,21 +658,23 @@ fun FileListItem(
             }
             val dateStr = format.format(Date(file.lastModified))
             
-            // Format item details
-            val detailStr = if (file.isDirectory) {
-                // If directory, show "Folder" and date
-                "Složka • $dateStr"
-            } else {
-                "${formatSize(file.size)} • $dateStr"
+            if (appPreferences.detailPanelsEnabled) {
+                // Format item details
+                val detailStr = if (file.isDirectory) {
+                    // If directory, show "Folder" and date
+                    "Složka • $dateStr"
+                } else {
+                    "${formatSize(file.size)} • $dateStr"
+                }
+                
+                Text(
+                    text = detailStr,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            
-            Text(
-                text = detailStr,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
         }
         
         if (!isMultiSelectMode) {
@@ -765,6 +816,7 @@ fun FavoriteEditDialog(
 ) {
     var name by remember { mutableStateOf(file.name) }
     var selectedIcon by remember { mutableStateOf(com.example.model.FavoriteIcon.STAR) }
+    var isPinned by remember { mutableStateOf(false) }
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -781,6 +833,14 @@ fun FavoriteEditDialog(
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                 )
                 
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { isPinned = !isPinned },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = isPinned, onCheckedChange = { isPinned = it })
+                    Text("Připnout nahoru", style = MaterialTheme.typography.bodyMedium)
+                }
+                
                 Text("Ikona", style = MaterialTheme.typography.labelLarge)
                 
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -795,6 +855,7 @@ fun FavoriteEditDialog(
                             com.example.model.FavoriteIcon.DOWNLOAD -> Icons.Rounded.Download
                             com.example.model.FavoriteIcon.IMAGE -> Icons.Rounded.Image
                             com.example.model.FavoriteIcon.DOCUMENT -> Icons.Rounded.Description
+                            com.example.model.FavoriteIcon.PIN -> Icons.Rounded.PushPin
                         }
                         
                         Box(
@@ -821,7 +882,7 @@ fun FavoriteEditDialog(
             TextButton(
                 onClick = { 
                     if (name.isNotBlank()) {
-                        onConfirm(com.example.model.FavoriteModel(file.path, name, true, selectedIcon))
+                        onConfirm(com.example.model.FavoriteModel(file.path, name, true, selectedIcon, isPinned))
                     } 
                 }
             ) { Text("Uložit", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) }

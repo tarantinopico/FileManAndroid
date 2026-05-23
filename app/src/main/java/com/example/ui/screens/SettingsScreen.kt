@@ -43,13 +43,13 @@ fun SettingsScreen(
     val densityPreference by viewModel.densityPreference.collectAsStateWithLifecycle(initialValue = UiDensity.NORMAL)
     val editorSettings by viewModel.editorSettings.collectAsStateWithLifecycle(initialValue = EditorSettings())
     val fileSettings by viewModel.fileSettings.collectAsStateWithLifecycle()
+    val appPreferences by viewModel.appPreferences.collectAsStateWithLifecycle()
     
     var showThemeDialog by remember { mutableStateOf(false) }
     var showDensityDialog by remember { mutableStateOf(false) }
-    var showEditorDialog by remember { mutableStateOf(false) }
+    var showSortDialog by remember { mutableStateOf(false) }
     var showSyntaxScreen by remember { mutableStateOf(false) }
-    var showFileDialog by remember { mutableStateOf(false) }
-
+    
     if (showSyntaxScreen) {
         SyntaxSettingsScreen(viewModel, onNavigateBack = { showSyntaxScreen = false })
         return
@@ -68,90 +68,87 @@ fun SettingsScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column {
-                    ListItem(
-                        headlineContent = { Text("Vzhled aplikace") },
-                        supportingContent = { Text(getThemeLabel(themePreference)) },
-                        leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                        modifier = Modifier.clickable { showThemeDialog = true }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
-                    ListItem(
-                        headlineContent = { Text("Hustota zobrazení") },
-                        supportingContent = { Text(getDensityLabel(densityPreference)) },
-                        leadingContent = { Icon(Icons.Rounded.ViewCompact, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                        modifier = Modifier.clickable { showDensityDialog = true }
-                    )
+            
+            SettingsCategoryTitle("Zobrazení a vzhled")
+            SettingsCard {
+                SettingsListItem(headline = "Vzhled aplikace", supporting = getThemeLabel(themePreference), icon = Icons.Rounded.Settings, onClick = { showThemeDialog = true })
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsListItem(headline = "Hustota UI", supporting = getDensityLabel(densityPreference), icon = Icons.Rounded.ViewCompact, onClick = { showDensityDialog = true })
+            }
+            
+            SettingsCategoryTitle("Chování a navigace")
+            SettingsCard {
+                SettingsSwitchItem(headline = "Otevřít poslední umístění", supporting = "Při startu načte naposledy otevřenou složku", checked = appPreferences.openLastLocationOnStartup) {
+                    viewModel.updateAppPreferences(appPreferences.copy(openLastLocationOnStartup = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Levé menu (Drawer)", supporting = "Povolí postranní menu pro rychlou navigaci", checked = appPreferences.drawerEnabled) {
+                    viewModel.updateAppPreferences(appPreferences.copy(drawerEnabled = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Zobrazit oblíbené", checked = appPreferences.showFavorites) {
+                    viewModel.updateAppPreferences(appPreferences.copy(showFavorites = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Zobrazit připnuté položky", checked = appPreferences.showPinned) {
+                    viewModel.updateAppPreferences(appPreferences.copy(showPinned = it))
                 }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column {
-                    ListItem(
-                        headlineContent = { Text("Prohlížení souborů") },
-                        supportingContent = { Text("Skryté soubory, přípony, řazení") },
-                        leadingContent = { Icon(Icons.Rounded.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                        modifier = Modifier.clickable { showFileDialog = true }
-                    )
+            SettingsCategoryTitle("Seznam souborů")
+            SettingsCard {
+                SettingsListItem(headline = "Výchozí řazení", supporting = getSortLabel(fileSettings.sortOption), onClick = { showSortDialog = true })
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Skryté soubory", supporting = "Začínající tečkou", checked = fileSettings.showHiddenFiles) {
+                    viewModel.updateFileSettings(fileSettings.copy(showHiddenFiles = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Přípony souborů", supporting = "Zobrazovat v názvu", checked = fileSettings.showFileExtensions) {
+                    viewModel.updateFileSettings(fileSettings.copy(showFileExtensions = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Kompaktní režim", supporting = "Menší řádky pro zobrazení více položek", checked = appPreferences.compactListMode) {
+                    viewModel.updateAppPreferences(appPreferences.copy(compactListMode = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Detaily", supporting = "Zobrazit velikost, datum", checked = appPreferences.detailPanelsEnabled) {
+                    viewModel.updateAppPreferences(appPreferences.copy(detailPanelsEnabled = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Náhledy a ikony", supporting = "Barevné štítky, miniatury", checked = appPreferences.showFileBadges) {
+                    viewModel.updateAppPreferences(appPreferences.copy(showFileBadges = it))
                 }
             }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column {
-                    ListItem(
-                        headlineContent = { Text("Editor a kód") },
-                        supportingContent = { Text("Zalamování, čísla řádků") },
-                        leadingContent = { Icon(Icons.Rounded.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                        modifier = Modifier.clickable { showEditorDialog = true }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
-                    ListItem(
-                        headlineContent = { Text("Zvýraznění syntaxe") },
-                        supportingContent = { Text("Spravovat mapování") },
-                        leadingContent = { Icon(Icons.Rounded.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                        modifier = Modifier.clickable { showSyntaxScreen = true }
-                    )
+
+            SettingsCategoryTitle("Textový editor")
+            SettingsCard {
+                SettingsSwitchItem(headline = "Zalamování slov", checked = editorSettings.wordWrap) {
+                    viewModel.updateEditorSettings(editorSettings.copy(wordWrap = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Čísla řádků", checked = editorSettings.showLineNumbers) {
+                    viewModel.updateEditorSettings(editorSettings.copy(showLineNumbers = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Zvýraznění syntaxe", checked = editorSettings.syntaxHighlightEnabled) {
+                    viewModel.updateEditorSettings(editorSettings.copy(syntaxHighlightEnabled = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsListItem(headline = "Mapování přípon", supporting = "Spravovat barvy a jazyky", icon = Icons.Rounded.Code, onClick = { showSyntaxScreen = true })
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Bezpečný režim", supporting = "Fallback pro velké soubory", checked = editorSettings.largeFileSafeModeEnabled) {
+                    viewModel.updateEditorSettings(editorSettings.copy(largeFileSafeModeEnabled = it))
+                }
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
+                SettingsSwitchItem(headline = "Toolbar akce", supporting = "Rychlé akce v editoru", checked = editorSettings.editorToolbarEnabled) {
+                    viewModel.updateEditorSettings(editorSettings.copy(editorToolbarEnabled = it))
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                ListItem(
-                    headlineContent = { Text("O aplikaci") },
-                    leadingContent = { Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    modifier = Modifier.clickable { onNavigateToAbout() }
-                )
+            SettingsCard {
+                SettingsListItem(headline = "O aplikaci", icon = Icons.Rounded.Info, onClick = onNavigateToAbout)
             }
-            
             Spacer(modifier = Modifier.height(40.dp))
         }
     }
@@ -159,69 +156,37 @@ fun SettingsScreen(
     if (showThemeDialog) {
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-            title = { Text("Vybrat vzhled", style = MaterialTheme.typography.titleMedium) },
+            title = { Text("Vybrat vzhled") },
             text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Column {
                     ThemeMode.values().forEach { mode ->
                         Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = (mode == themePreference),
-                                    onClick = { 
-                                        viewModel.setThemeMode(mode)
-                                        showThemeDialog = false
-                                    },
-                                    role = Role.RadioButton
-                                )
-                                .padding(vertical = 12.dp),
+                            Modifier.fillMaxWidth().selectable(selected = (mode == themePreference), onClick = { viewModel.setThemeMode(mode); showThemeDialog = false }, role = Role.RadioButton).padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(
-                                selected = (mode == themePreference),
-                                onClick = null
-                            )
+                            RadioButton(selected = (mode == themePreference), onClick = null)
                             Spacer(Modifier.width(16.dp))
                             Text(getThemeLabel(mode))
                         }
                     }
                 }
             },
-            confirmButton = {
-                TextButton(onClick = { showThemeDialog = false }) {
-                    Text("Zavřít")
-                }
-            }
+            confirmButton = { TextButton(onClick = { showThemeDialog = false }) { Text("Zavřít") } }
         )
     }
     
     if (showDensityDialog) {
         AlertDialog(
             onDismissRequest = { showDensityDialog = false },
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-            title = { Text("Hustota zobrazení", style = MaterialTheme.typography.titleMedium) },
+            title = { Text("Hustota zobrazení") },
             text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Column {
                     UiDensity.values().forEach { density ->
                         Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = (density == densityPreference),
-                                    onClick = { 
-                                        viewModel.setUiDensity(density)
-                                        showDensityDialog = false
-                                    },
-                                    role = Role.RadioButton
-                                )
-                                .padding(vertical = 12.dp),
+                            Modifier.fillMaxWidth().selectable(selected = (density == densityPreference), onClick = { viewModel.setUiDensity(density); showDensityDialog = false }, role = Role.RadioButton).padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(
-                                selected = (density == densityPreference),
-                                onClick = null
-                            )
+                            RadioButton(selected = (density == densityPreference), onClick = null)
                             Spacer(Modifier.width(16.dp))
                             Column {
                                 Text(getDensityLabel(density))
@@ -231,126 +196,78 @@ fun SettingsScreen(
                     }
                 }
             },
-            confirmButton = {
-                TextButton(onClick = { showDensityDialog = false }) {
-                    Text("Zavřít")
-                }
-            }
+            confirmButton = { TextButton(onClick = { showDensityDialog = false }) { Text("Zavřít") } }
         )
     }
 
-    if (showEditorDialog) {
+    if (showSortDialog) {
         AlertDialog(
-            onDismissRequest = { showEditorDialog = false },
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-            title = { Text("Nastavení editoru", style = MaterialTheme.typography.titleMedium) },
+            onDismissRequest = { showSortDialog = false },
+            title = { Text("Výchozí řazení") },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { viewModel.updateEditorSettings(editorSettings.copy(wordWrap = !editorSettings.wordWrap)) }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Zalamování slov")
-                            Text("Dlouhé řádky budou automaticky zalomeny", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = editorSettings.wordWrap, onCheckedChange = null)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { viewModel.updateEditorSettings(editorSettings.copy(showLineNumbers = !editorSettings.showLineNumbers)) }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Čísla řádků")
-                            Text("Zobrazit čísla řádků na okraji editoru", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = editorSettings.showLineNumbers, onCheckedChange = null)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { viewModel.updateEditorSettings(editorSettings.copy(syntaxHighlightEnabled = !editorSettings.syntaxHighlightEnabled)) }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Zvýraznění syntaxe")
-                            Text("Globálně zapne nebo vypne barvení kódu", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = editorSettings.syntaxHighlightEnabled, onCheckedChange = null)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showEditorDialog = false }) {
-                    Text("Zavřít")
-                }
-            }
-        )
-    }
-
-    if (showFileDialog) {
-        AlertDialog(
-            onDismissRequest = { showFileDialog = false },
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-            title = { Text("Prohlížení souborů", style = MaterialTheme.typography.titleMedium) },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { viewModel.updateFileSettings(fileSettings.copy(showHiddenFiles = !fileSettings.showHiddenFiles)) }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Skryté soubory")
-                            Text("Zobrazit soubory a složky začínající tečkou", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = fileSettings.showHiddenFiles, onCheckedChange = null)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { viewModel.updateFileSettings(fileSettings.copy(showFileExtensions = !fileSettings.showFileExtensions)) }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Přípony souborů")
-                            Text("Zobrazovat za názvem souboru jeho typ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = fileSettings.showFileExtensions, onCheckedChange = null)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text("Výchozí řazení", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(8.dp))
                     com.example.model.SortOption.values().forEach { option ->
                         Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = (option == fileSettings.sortOption),
-                                    onClick = { 
-                                        viewModel.updateFileSettings(fileSettings.copy(sortOption = option))
-                                    },
-                                    role = Role.RadioButton
-                                )
-                                .padding(vertical = 8.dp),
+                            Modifier.fillMaxWidth().selectable(selected = (option == fileSettings.sortOption), onClick = { viewModel.updateFileSettings(fileSettings.copy(sortOption = option)); showSortDialog = false }, role = Role.RadioButton).padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(
-                                selected = (option == fileSettings.sortOption),
-                                onClick = null
-                            )
+                            RadioButton(selected = (option == fileSettings.sortOption), onClick = null)
                             Spacer(Modifier.width(16.dp))
                             Text(getSortLabel(option))
                         }
                     }
                 }
             },
-            confirmButton = {
-                TextButton(onClick = { showFileDialog = false }) {
-                    Text("Zavřít")
-                }
-            }
+            confirmButton = { TextButton(onClick = { showSortDialog = false }) { Text("Zavřít") } }
         )
+    }
+}
+
+@Composable
+fun SettingsCategoryTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 32.dp, top = 24.dp, bottom = 8.dp)
+    )
+}
+
+@Composable
+fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        content = content
+    )
+}
+
+@Composable
+fun SettingsListItem(headline: String, supporting: String? = null, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(headline) },
+        supportingContent = supporting?.let { { Text(it) } },
+        leadingContent = icon?.let { { Icon(it, contentDescription = null, tint = MaterialTheme.colorScheme.primary) } },
+        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick)
+    )
+}
+
+@Composable
+fun SettingsSwitchItem(headline: String, supporting: String? = null, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+            Text(headline, style = MaterialTheme.typography.bodyLarge)
+            if (supporting != null) {
+                Text(supporting, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 
