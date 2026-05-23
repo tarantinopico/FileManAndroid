@@ -123,6 +123,13 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun createFile(name: String, content: String? = null) {
+        viewModelScope.launch {
+            val result = fileRepository.createFile(_uiState.value.currentPath, name, content)
+            handleOperationResult(result, "Soubor vytvořen")
+        }
+    }
+
     fun deleteItem(file: FileModel) {
         viewModelScope.launch {
             val result = fileRepository.deleteFile(file.path)

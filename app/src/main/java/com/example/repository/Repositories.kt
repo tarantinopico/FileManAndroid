@@ -39,6 +39,52 @@ class FileRepository {
         }
     }
 
+    suspend fun createFile(parentPath: String, name: String, content: String? = null): FileOperationResult = withContext(Dispatchers.IO) {
+        try {
+            val newFile = File(parentPath, name)
+            if (newFile.exists()) return@withContext FileOperationResult.Error("Soubor již existuje")
+            
+            if (newFile.createNewFile()) {
+                if (content != null) {
+                    newFile.writeText(content)
+                }
+                FileOperationResult.Success
+            } else {
+                FileOperationResult.Error("Soubor nelze vytvořit")
+            }
+        } catch (e: Exception) {
+            FileOperationResult.Error(e.message ?: "Chyba")
+        }
+    }
+
+    suspend fun readFileContent(path: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val file = File(path)
+            if (!file.exists() || !file.isFile) {
+                return@withContext Result.failure(Exception("Neplatný soubor"))
+            }
+            if (file.length() > 5 * 1024 * 1024) { // 5MB limit
+                return@withContext Result.failure(Exception("Soubor je příliš velký"))
+            }
+            Result.success(file.readText())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun saveFileContent(path: String, content: String): FileOperationResult = withContext(Dispatchers.IO) {
+        try {
+            val file = File(path)
+            if (!file.exists() || !file.isFile) {
+                return@withContext FileOperationResult.Error("Neplatný soubor")
+            }
+            file.writeText(content)
+            FileOperationResult.Success
+        } catch (e: Exception) {
+            FileOperationResult.Error(e.message ?: "Chyba při ukládání")
+        }
+    }
+
     suspend fun createFolder(parentPath: String, name: String): FileOperationResult = withContext(Dispatchers.IO) {
         try {
             val newFolder = File(parentPath, name)

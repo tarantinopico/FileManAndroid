@@ -18,7 +18,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     viewModel: FileManagerViewModel,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToEditor: (String, String) -> Unit
 ) {
     val hasPermission by viewModel.hasPermission.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -64,17 +65,23 @@ fun MainScreen(
                 val extension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
                 val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: "*/*"
                 
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, mimeType)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val textExtensions = listOf("txt", "md", "csv", "xml", "json", "kt", "java", "py", "html", "css", "js", "log", "ini", "properties")
+                if (mimeType.startsWith("text/") || extension.lowercase() in textExtensions) {
+                    onNavigateToEditor(file.path, file.name)
+                } else {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, mimeType)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(intent, "Otevřít pomocí"))
                 }
-                context.startActivity(Intent.createChooser(intent, "Otevřít pomocí"))
             } catch (e: Exception) {
                 scope.launch {
                     snackbarHostState.showSnackbar("Nelze otevřít soubor")
                 }
             }
         }
+
 
         ModalNavigationDrawer(
             drawerState = drawerState,
@@ -104,6 +111,7 @@ fun MainScreen(
                 onNavigate = { path -> viewModel.loadDirectory(path) },
                 onNavigateUp = { viewModel.navigateUp() },
                 onCreateFolder = { name -> viewModel.createFolder(name) },
+                onCreateFile = { name -> viewModel.createFile(name) },
                 onDelete = { file -> viewModel.deleteItem(file) },
                 onRename = { file, newName -> viewModel.renameItem(file, newName) },
                 onCopy = { file -> viewModel.setClipboard(file, ClipboardOperation.COPY) },

@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +33,7 @@ fun FileExplorerScreen(
     onNavigate: (String) -> Unit,
     onNavigateUp: () -> Unit,
     onCreateFolder: (String) -> Unit,
+    onCreateFile: (String) -> Unit,
     onDelete: (FileModel) -> Unit,
     onRename: (FileModel, String) -> Unit,
     onCopy: (FileModel) -> Unit,
@@ -44,6 +47,8 @@ fun FileExplorerScreen(
     modifier: Modifier = Modifier
 ) {
     var showCreateFolderDialog by remember { mutableStateOf(false) }
+    var showCreateFileDialog by remember { mutableStateOf(false) }
+    var showCreateMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -63,8 +68,35 @@ fun FileExplorerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showCreateFolderDialog = true }) {
-                        Icon(Icons.Rounded.Add, contentDescription = "Nová složka")
+                    Box {
+                        IconButton(onClick = { showCreateMenu = true }) {
+                            Icon(Icons.Rounded.Add, contentDescription = "Přidat")
+                        }
+                        DropdownMenu(
+                            expanded = showCreateMenu,
+                            onDismissRequest = { showCreateMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Nová složka") },
+                                onClick = {
+                                    showCreateMenu = false
+                                    showCreateFolderDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Rounded.Folder, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Nový soubor") },
+                                onClick = {
+                                    showCreateMenu = false
+                                    showCreateFileDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Rounded.InsertDriveFile, contentDescription = null)
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -162,6 +194,18 @@ fun FileExplorerScreen(
             onDismiss = { showCreateFolderDialog = false }
         )
     }
+
+    if (showCreateFileDialog) {
+        InputDialog(
+            title = "Nový soubor",
+            initialValue = "",
+            onConfirm = { name ->
+                onCreateFile(name)
+                showCreateFileDialog = false
+            },
+            onDismiss = { showCreateFileDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -177,6 +221,7 @@ fun FileListItem(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val format = remember { SimpleDateFormat("dd. MM. yyyy HH:mm", Locale.getDefault()) }
 
@@ -189,7 +234,7 @@ fun FileListItem(
     ) {
         Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = if (file.isDirectory) Icons.Rounded.List else Icons.Rounded.Info,
+                imageVector = if (file.isDirectory) Icons.Rounded.Folder else Icons.Rounded.InsertDriveFile,
                 contentDescription = if (file.isDirectory) "Složka" else "Soubor",
                 tint = if (file.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(40.dp)
@@ -264,6 +309,29 @@ fun FileListItem(
                         onMove()
                     }
                 )
+                if (!file.isDirectory) {
+                    DropdownMenuItem(
+                        text = { Text("Sdílet") },
+                        onClick = {
+                            expanded = false
+                            try {
+                                val uri = androidx.core.content.FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.provider",
+                                    java.io.File(file.path)
+                                )
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "*/*"
+                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(intent, "Sdílet"))
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, "Nelze sdílet soubor", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text("Smazat", color = MaterialTheme.colorScheme.error) },
                     onClick = {

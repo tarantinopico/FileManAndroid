@@ -20,11 +20,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.ThemeMode
 import com.example.viewmodel.FileManagerViewModel
+import com.example.viewmodel.TextEditorViewModel
+import java.net.URLEncoder
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.launch
 
 @Composable
@@ -34,7 +41,12 @@ fun AppNavigation(viewModel: FileManagerViewModel) {
         composable("main") {
             MainScreen(
                 viewModel = viewModel,
-                onNavigateToSettings = { navController.navigate("settings") }
+                onNavigateToSettings = { navController.navigate("settings") },
+                onNavigateToEditor = { path, name ->
+                    val encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
+                    val encodedName = URLEncoder.encode(name, StandardCharsets.UTF_8.toString())
+                    navController.navigate("editor/$encodedPath/$encodedName")
+                }
             )
         }
         composable("settings") {
@@ -46,6 +58,24 @@ fun AppNavigation(viewModel: FileManagerViewModel) {
         }
         composable("about") {
             AboutScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = "editor/{path}/{name}",
+            arguments = listOf(
+                navArgument("path") { type = NavType.StringType },
+                navArgument("name") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val path = URLDecoder.decode(backStackEntry.arguments?.getString("path") ?: "", StandardCharsets.UTF_8.toString())
+            val name = URLDecoder.decode(backStackEntry.arguments?.getString("name") ?: "", StandardCharsets.UTF_8.toString())
+            val editorViewModel: TextEditorViewModel = viewModel()
+            LaunchedEffect(path, name) {
+                editorViewModel.loadFile(path, name)
+            }
+            TextEditorScreen(
+                viewModel = editorViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
