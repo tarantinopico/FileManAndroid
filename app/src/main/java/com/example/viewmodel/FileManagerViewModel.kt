@@ -128,15 +128,17 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun toggleFavorite(path: String, name: String, isFavorite: Boolean) {
+    fun saveFavorite(favorite: com.example.model.FavoriteModel) {
         viewModelScope.launch {
-            if (isFavorite) {
-                settingsRepository.removeFavorite(path)
-                _uiEvents.emit(UiEvent.ShowToast("Odebráno z oblíbených"))
-            } else {
-                settingsRepository.addFavorite(path, name)
-                _uiEvents.emit(UiEvent.ShowToast("Přidáno do oblíbených"))
-            }
+            settingsRepository.saveFavorite(favorite)
+            _uiEvents.emit(UiEvent.ShowToast("Uloženo do oblíbených"))
+        }
+    }
+
+    fun removeFavorite(path: String) {
+        viewModelScope.launch {
+            settingsRepository.removeFavorite(path)
+            _uiEvents.emit(UiEvent.ShowToast("Odebráno z oblíbených"))
         }
     }
 

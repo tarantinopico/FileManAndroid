@@ -26,10 +26,15 @@ data class StorageVolumeModel(
     val isRemovable: Boolean
 )
 
+enum class FavoriteIcon {
+    FOLDER, STAR, PROJECT, DOWNLOAD, IMAGE, DOCUMENT
+}
+
 data class FavoriteModel(
     val path: String,
     val name: String,
-    val isAvailable: Boolean = true
+    val isAvailable: Boolean = true,
+    val icon: FavoriteIcon = FavoriteIcon.FOLDER
 )
 
 enum class ThemeMode {

@@ -7,6 +7,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,7 +26,8 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     viewModel: FileManagerViewModel,
     onNavigateToSettings: () -> Unit,
-    onNavigateToEditor: (String, String) -> Unit
+    onNavigateToEditor: (String, String) -> Unit,
+    onNavigateToImage: (String, String) -> Unit
 ) {
     val hasPermission by viewModel.hasPermission.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -47,6 +55,78 @@ fun MainScreen(
         }
     }
 
+    var showFavoriteEditDialogFor by remember { mutableStateOf<com.example.model.FavoriteModel?>(null) }
+
+    if (showFavoriteEditDialogFor != null) {
+        val fav = showFavoriteEditDialogFor!!
+        var name by remember { mutableStateOf(fav.name) }
+        var selectedIcon by remember { mutableStateOf(fav.icon) }
+        
+        AlertDialog(
+            onDismissRequest = { showFavoriteEditDialogFor = null },
+            title = { Text("Upravit oblíbenou") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Název") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Text("Ikona", style = MaterialTheme.typography.labelLarge)
+                    
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val icons = com.example.model.FavoriteIcon.values()
+                        items(icons.size) { index ->
+                            val icon = icons[index]
+                            val isSelected = icon == selectedIcon
+                            val iconVector = when(icon) {
+                                com.example.model.FavoriteIcon.FOLDER -> Icons.Rounded.Folder
+                                com.example.model.FavoriteIcon.STAR -> Icons.Rounded.Star
+                                com.example.model.FavoriteIcon.PROJECT -> Icons.Rounded.Work
+                                com.example.model.FavoriteIcon.DOWNLOAD -> Icons.Rounded.Download
+                                com.example.model.FavoriteIcon.IMAGE -> Icons.Rounded.Image
+                                com.example.model.FavoriteIcon.DOCUMENT -> Icons.Rounded.Description
+                            }
+                            
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent,
+                                        shape = androidx.compose.foundation.shape.CircleShape
+                                    )
+                                    .clickable { selectedIcon = icon },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    iconVector,
+                                    contentDescription = icon.name,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { 
+                        if (name.isNotBlank()) {
+                            viewModel.saveFavorite(fav.copy(name = name, icon = selectedIcon))
+                            showFavoriteEditDialogFor = null
+                        } 
+                    }
+                ) { Text("Uložit") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFavoriteEditDialogFor = null }) { Text("Zrušit") }
+            }
+        )
+    }
+
     if (hasPermission) {
         BackHandler(enabled = drawerState.isOpen || uiState.parentPath != null) {
             if (drawerState.isOpen) {
@@ -69,8 +149,11 @@ fun MainScreen(
                 
                 val isKnownTextExtension = syntaxMappings.any { it.extension == extension }
                 val textExtensions = listOf("txt", "md", "csv", "xml", "json", "kt", "java", "py", "html", "css", "js", "log", "ini", "properties")
+                val imageExtensions = listOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
                 
-                if (mimeType.startsWith("text/") || extension in textExtensions || isKnownTextExtension) {
+                if (mimeType.startsWith("image/") || extension in imageExtensions) {
+                    onNavigateToImage(file.path, file.name)
+                } else if (mimeType.startsWith("text/") || extension in textExtensions || isKnownTextExtension) {
                     onNavigateToEditor(file.path, file.name)
                 } else {
                     val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -101,6 +184,10 @@ fun MainScreen(
                         scope.launch { drawerState.close() }
                         viewModel.loadDirectory(favorite.path)
                     },
+                    onEditFavorite = { favorite ->
+                        scope.launch { drawerState.close() }
+                        showFavoriteEditDialogFor = favorite
+                    },
                     onSettingsClick = {
                         scope.launch { drawerState.close() }
                         onNavigateToSettings()
@@ -125,10 +212,8 @@ fun MainScreen(
                 onCancelClipboard = { viewModel.cancelClipboard() },
                 onOpenFile = onOpenFile,
                 onMenuClick = { scope.launch { drawerState.open() } },
-                onToggleFavorite = { file ->
-                    val isFav = favorites.any { it.path == file.path }
-                    viewModel.toggleFavorite(file.path, file.name, isFav)
-                },
+                onRemoveFavorite = { path -> viewModel.removeFavorite(path) },
+                onSaveFavorite = { favorite -> viewModel.saveFavorite(favorite) },
                 onToggleSelection = { path -> viewModel.toggleSelection(path) },
                 onClearSelection = { viewModel.clearSelection() },
                 onSelectAll = { viewModel.selectAll() },

@@ -46,6 +46,11 @@ fun AppNavigation(viewModel: FileManagerViewModel) {
                     val encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
                     val encodedName = URLEncoder.encode(name, StandardCharsets.UTF_8.toString())
                     navController.navigate("editor/$encodedPath/$encodedName")
+                },
+                onNavigateToImage = { path, name ->
+                    val encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
+                    val encodedName = URLEncoder.encode(name, StandardCharsets.UTF_8.toString())
+                    navController.navigate("image/$encodedPath/$encodedName")
                 }
             )
         }
@@ -76,6 +81,21 @@ fun AppNavigation(viewModel: FileManagerViewModel) {
             }
             TextEditorScreen(
                 viewModel = editorViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = "image/{path}/{name}",
+            arguments = listOf(
+                navArgument("path") { type = NavType.StringType },
+                navArgument("name") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val path = URLDecoder.decode(backStackEntry.arguments?.getString("path") ?: "", StandardCharsets.UTF_8.toString())
+            val name = URLDecoder.decode(backStackEntry.arguments?.getString("name") ?: "", StandardCharsets.UTF_8.toString())
+            ImageViewerScreen(
+                imagePath = path,
+                imageName = name,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

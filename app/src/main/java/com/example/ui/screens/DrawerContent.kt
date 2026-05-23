@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +22,7 @@ fun DrawerContent(
     favorites: List<FavoriteModel>,
     onStorageVolumeClick: (StorageVolumeModel) -> Unit,
     onFavoriteClick: (FavoriteModel) -> Unit,
+    onEditFavorite: (FavoriteModel) -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -60,10 +63,19 @@ fun DrawerContent(
                 }
             } else {
                 items(favorites) { favorite ->
+                    val iconVector = when(favorite.icon) {
+                        com.example.model.FavoriteIcon.FOLDER -> Icons.Rounded.Folder
+                        com.example.model.FavoriteIcon.STAR -> Icons.Rounded.Star
+                        com.example.model.FavoriteIcon.PROJECT -> Icons.Rounded.Work
+                        com.example.model.FavoriteIcon.DOWNLOAD -> Icons.Rounded.Download
+                        com.example.model.FavoriteIcon.IMAGE -> Icons.Rounded.Image
+                        com.example.model.FavoriteIcon.DOCUMENT -> Icons.Rounded.Description
+                    }
                     DrawerItem(
                         title = favorite.name,
-                        icon = Icons.Rounded.Favorite,
+                        icon = iconVector,
                         onClick = { onFavoriteClick(favorite) },
+                        onLongClick = { onEditFavorite(favorite) },
                         enabled = favorite.isAvailable
                     )
                 }
@@ -82,11 +94,13 @@ fun DrawerContent(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun DrawerItem(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true
 ) {
     val dimens = com.example.ui.theme.LocalAppDimens.current
@@ -95,7 +109,13 @@ fun DrawerItem(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = dimens.listItemHeight)
-            .clickable(enabled = enabled, onClick = onClick)
+            .run {
+                if (onLongClick != null) {
+                    this.combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
+                } else {
+                    this.clickable(enabled = enabled, onClick = onClick)
+                }
+            }
             .padding(horizontal = dimens.paddingLarge, vertical = dimens.paddingMedium),
         verticalAlignment = Alignment.CenterVertically
     ) {

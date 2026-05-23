@@ -21,7 +21,8 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 class SettingsRepository(private val context: Context) {
     private val THEME_KEY = stringPreferencesKey("theme_mode")
     private val DENSITY_KEY = stringPreferencesKey("ui_density")
-    private val FAVORITES_KEY = stringSetPreferencesKey("favorite_paths")
+    private val FAVORITES_KEY = stringSetPreferencesKey("favorite_paths") // old
+    private val FAVORITE_ITEMS_KEY = stringSetPreferencesKey("favorite_items_v2")
     
     private val EDITOR_WORD_WRAP = booleanPreferencesKey("editor_word_wrap")
     private val EDITOR_LINE_NUMBERS = booleanPreferencesKey("editor_line_numbers")
@@ -61,30 +62,63 @@ class SettingsRepository(private val context: Context) {
             prefs[DENSITY_KEY] = density.name
         }
     }
-
+    
     val favorites: Flow<List<FavoriteModel>> = context.dataStore.data.map { prefs ->
-        val paths = prefs[FAVORITES_KEY] ?: emptySet()
-        paths.map { path ->
+        val oldPaths = prefs[FAVORITES_KEY] ?: emptySet()
+        val items = prefs[FAVORITE_ITEMS_KEY] ?: emptySet()
+        
+        val parsedItems = items.mapNotNull { 
+            val parts = it.split("|", limit = 3)
+            if (parts.size == 3) {
+                val file = File(parts[0])
+                FavoriteModel(
+                    path = parts[0],
+                    name = parts[1],
+                    isAvailable = file.exists(),
+                    icon = try { com.example.model.FavoriteIcon.valueOf(parts[2]) } catch (e: Exception) { com.example.model.FavoriteIcon.FOLDER }
+                )
+            } else null
+        }
+        
+        // Migrate old if not present in new
+        val oldParsedItems = MapOldToNew(oldPaths, parsedItems)
+        
+        (parsedItems + oldParsedItems).sortedBy { it.name.lowercase() }
+    }
+    
+    private fun MapOldToNew(oldPaths: Set<String>, newItems: List<FavoriteModel>): List<FavoriteModel> {
+        val currentPaths = newItems.map { it.path }.toSet()
+        return oldPaths.filter { it !in currentPaths }.map { path ->
             val file = File(path)
             FavoriteModel(
                 path = path,
                 name = file.name.ifEmpty { path },
-                isAvailable = file.exists()
+                isAvailable = file.exists(),
+                icon = com.example.model.FavoriteIcon.STAR
             )
-        }.sortedBy { it.name.lowercase() }
+        }
     }
 
-    suspend fun addFavorite(path: String, name: String) {
+    suspend fun saveFavorite(favorite: FavoriteModel) {
         context.dataStore.edit { prefs ->
-            val current = prefs[FAVORITES_KEY] ?: emptySet()
-            prefs[FAVORITES_KEY] = current + path
+            val current = prefs[FAVORITE_ITEMS_KEY] ?: emptySet()
+            // remove if path already exists to overwrite
+            val filtered = current.filter { !it.startsWith("${favorite.path}|") }.toMutableSet()
+            filtered.add("${favorite.path}|${favorite.name}|${favorite.icon.name}")
+            prefs[FAVORITE_ITEMS_KEY] = filtered
         }
     }
 
     suspend fun removeFavorite(path: String) {
         context.dataStore.edit { prefs ->
-            val current = prefs[FAVORITES_KEY] ?: emptySet()
-            prefs[FAVORITES_KEY] = current - path
+            // remove from old key if it exists
+            val oldPaths = prefs[FAVORITES_KEY] ?: emptySet()
+            if (oldPaths.contains(path)) {
+                prefs[FAVORITES_KEY] = oldPaths - path
+            }
+            
+            val current = prefs[FAVORITE_ITEMS_KEY] ?: emptySet()
+            prefs[FAVORITE_ITEMS_KEY] = current.filter { !it.startsWith("$path|") }.toSet()
         }
     }
 

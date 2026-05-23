@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -72,7 +74,8 @@ fun FileExplorerScreen(
     onCancelClipboard: () -> Unit,
     onOpenFile: (FileModel) -> Unit,
     onMenuClick: () -> Unit,
-    onToggleFavorite: (FileModel) -> Unit,
+    onRemoveFavorite: (String) -> Unit,
+    onSaveFavorite: (FavoriteModel) -> Unit,
     onToggleSelection: (String) -> Unit,
     onClearSelection: () -> Unit,
     onSelectAll: () -> Unit,
@@ -96,6 +99,7 @@ fun FileExplorerScreen(
     var showZipDialog by remember { mutableStateOf(false) }
     var showEncryptDialog by remember { mutableStateOf(false) }
     var showBulkRenameDialog by remember { mutableStateOf(false) }
+    var showFavoriteDialogFor by remember { mutableStateOf<FileModel?>(null) }
     var decryptTarget by remember { mutableStateOf<FileModel?>(null) }
     
     val isMultiSelect = state.selectedFiles.isNotEmpty()
@@ -325,7 +329,13 @@ fun FileExplorerScreen(
                                 onDelete = { onDelete(file) },
                                 onCopy = { onCopy(file) },
                                 onMove = { onMove(file) },
-                                onToggleFavorite = { onToggleFavorite(file) },
+                                onToggleFavorite = {
+                                    if (favorites.any { it.path == file.path }) {
+                                        onRemoveFavorite(file.path)
+                                    } else {
+                                        showFavoriteDialogFor = file
+                                    }
+                                },
                                 onShowInfo = { showInfoDialogFor = file },
                                 onUnzip = { onUnzipFile(file) },
                                 onDecrypt = { decryptTarget = file }
@@ -374,6 +384,17 @@ fun FileExplorerScreen(
     
     if (decryptTarget != null) {
         InputDialog(title = "Zadat heslo pro dešifrování", initialValue = "", isPassword = true, onConfirm = { onDecryptFile(decryptTarget!!, it); decryptTarget = null }, onDismiss = { decryptTarget = null })
+    }
+
+    if (showFavoriteDialogFor != null) {
+        FavoriteEditDialog(
+            file = showFavoriteDialogFor!!,
+            onConfirm = { favorite ->
+                onSaveFavorite(favorite)
+                showFavoriteDialogFor = null
+            },
+            onDismiss = { showFavoriteDialogFor = null }
+        )
     }
 
     if (showInfoDialogFor != null) {
@@ -471,12 +492,40 @@ fun FileListItem(
         }
         
         Box(modifier = Modifier.size(dimens.iconSize * 1.5f), contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = getIconForFile(file),
-                contentDescription = if (file.isDirectory) "Složka" else "Soubor",
-                tint = if (file.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(dimens.iconSize * 1.5f)
-            )
+            val ext = file.name.substringAfterLast('.', "").lowercase()
+            val isImage = !file.isDirectory && ext in listOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
+            
+            if (isImage) {
+                coil.compose.AsyncImage(
+                    model = java.io.File(file.path),
+                    contentDescription = "Náhled",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.size(dimens.iconSize * 1.5f).clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                )
+            } else {
+                Icon(
+                    imageVector = getIconForFile(file),
+                    contentDescription = if (file.isDirectory) "Složka" else "Soubor",
+                    tint = if (file.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(dimens.iconSize * 1.5f)
+                )
+            }
+            
+            if (isFavorite && file.isDirectory) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .background(MaterialTheme.colorScheme.tertiaryContainer, androidx.compose.foundation.shape.CircleShape)
+                        .padding(2.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Star, 
+                        contentDescription = "Oblíbené",
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(dimens.iconSize * 0.6f)
+                    )
+                }
+            }
         }
         
         Spacer(modifier = Modifier.width(dimens.paddingLarge))
@@ -634,6 +683,79 @@ fun InputDialog(
             TextButton(onClick = onDismiss) {
                 Text("Zrušit")
             }
+        }
+    )
+}
+
+@Composable
+fun FavoriteEditDialog(
+    file: FileModel,
+    onConfirm: (com.example.model.FavoriteModel) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf(file.name) }
+    var selectedIcon by remember { mutableStateOf(com.example.model.FavoriteIcon.STAR) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Přidat do oblíbených") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Název") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Text("Ikona", style = MaterialTheme.typography.labelLarge)
+                
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val icons = com.example.model.FavoriteIcon.values()
+                    items(icons.size) { index ->
+                        val icon = icons[index]
+                        val isSelected = icon == selectedIcon
+                        val iconVector = when(icon) {
+                            com.example.model.FavoriteIcon.FOLDER -> Icons.Rounded.Folder
+                            com.example.model.FavoriteIcon.STAR -> Icons.Rounded.Star
+                            com.example.model.FavoriteIcon.PROJECT -> Icons.Rounded.Work
+                            com.example.model.FavoriteIcon.DOWNLOAD -> Icons.Rounded.Download
+                            com.example.model.FavoriteIcon.IMAGE -> Icons.Rounded.Image
+                            com.example.model.FavoriteIcon.DOCUMENT -> Icons.Rounded.Description
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent,
+                                    shape = androidx.compose.foundation.shape.CircleShape
+                                )
+                                .clickable { selectedIcon = icon },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                iconVector,
+                                contentDescription = icon.name,
+                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { 
+                    if (name.isNotBlank()) {
+                        onConfirm(com.example.model.FavoriteModel(file.path, name, true, selectedIcon))
+                    } 
+                }
+            ) { Text("Uložit") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Zrušit") }
         }
     )
 }
