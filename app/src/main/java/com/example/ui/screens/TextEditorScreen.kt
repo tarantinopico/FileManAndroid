@@ -241,6 +241,7 @@ fun TextEditorScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
+                        .imePadding()
                         .verticalScroll(verticalScrollState)
                 ) {
                     if (editorSettings.showLineNumbers) {
@@ -268,7 +269,7 @@ fun TextEditorScreen(
                         modifier = Modifier
                             .weight(1f)
                             .let { if (editorSettings.wordWrap) it else it.horizontalScroll(horizontalScrollState) }
-                            .padding(12.dp),
+                            .padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 64.dp),
                         textStyle = TextStyle(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontFamily = FontFamily.Monospace,

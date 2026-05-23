@@ -119,8 +119,8 @@ fun MainScreen(
                 onCreateFile = { name -> viewModel.createFile(name) },
                 onDelete = { file -> viewModel.deleteItem(file) },
                 onRename = { file, newName -> viewModel.renameItem(file, newName) },
-                onCopy = { file -> viewModel.setClipboard(file, ClipboardOperation.COPY) },
-                onMove = { file -> viewModel.setClipboard(file, ClipboardOperation.MOVE) },
+                onCopy = { file -> viewModel.setClipboard(listOf(file), ClipboardOperation.COPY) },
+                onMove = { file -> viewModel.setClipboard(listOf(file), ClipboardOperation.MOVE) },
                 onPaste = { viewModel.pasteFromClipboard() },
                 onCancelClipboard = { viewModel.cancelClipboard() },
                 onOpenFile = onOpenFile,
@@ -134,6 +134,22 @@ fun MainScreen(
                 onSelectAll = { viewModel.selectAll() },
                 onSearchChange = { query -> viewModel.setSearchQuery(query) },
                 onBatchDelete = { viewModel.deleteSelected() },
+                onBatchCopy = { files -> viewModel.setClipboard(files, ClipboardOperation.COPY); viewModel.clearSelection() },
+                onBatchMove = { files -> viewModel.setClipboard(files, ClipboardOperation.MOVE); viewModel.clearSelection() },
+                onBatchShare = { files ->
+                    val uris = java.util.ArrayList<android.net.Uri>()
+                    for (file in files) {
+                        uris.add(FileProvider.getUriForFile(context, "${context.packageName}.provider", java.io.File(file.path)))
+                    }
+                    val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                        type = "*/*"
+                        putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(intent, "Sdílet"))
+                    viewModel.clearSelection()
+                },
+                onBatchRename = { baseName -> viewModel.bulkRename(baseName) },
                 onBatchZip = { zipName -> viewModel.zipSelected(zipName) },
                 onBatchEncrypt = { password -> viewModel.encryptSelected(password) },
                 onDecryptFile = { file, password -> viewModel.decryptSelected(file, password) },

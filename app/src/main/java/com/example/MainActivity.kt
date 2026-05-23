@@ -18,6 +18,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             val themePreference = viewModel.themePreference.collectAsState(initial = com.example.model.ThemeMode.SYSTEM).value
             val densityPreference = viewModel.densityPreference.collectAsState(initial = com.example.model.UiDensity.NORMAL).value

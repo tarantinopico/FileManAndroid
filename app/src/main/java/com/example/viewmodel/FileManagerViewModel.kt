@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class ClipboardOperation { COPY, MOVE }
-data class ClipboardState(val file: FileModel, val operation: ClipboardOperation)
+data class ClipboardState(val files: List<FileModel>, val operation: ClipboardOperation)
 
 data class FileManagerState(
     val currentPath: String = "",
@@ -228,8 +228,35 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun setClipboard(file: FileModel, operation: ClipboardOperation) {
-        _clipboard.value = ClipboardState(file, operation)
+    fun bulkRename(baseName: String) {
+        val selected = _uiState.value.selectedFiles.toList()
+        if (selected.isEmpty()) return
+        clearSelection()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            var errors = 0
+            
+            // Sort by name originally so that numbering makes some sense
+            val filesToRename = selected.mapNotNull { path -> _uiState.value.files.find { it.path == path } }.sortedBy { it.name }
+            
+            for ((index, file) in filesToRename.withIndex()) {
+                val ext = if (file.isDirectory) "" else ".${file.name.substringAfterLast('.', "")}".takeIf { it != "." } ?: ""
+                val newName = if (filesToRename.size > 1) "${baseName}_${index + 1}$ext" else "$baseName$ext"
+                val result = fileRepository.renameFile(file.path, newName)
+                if (result is FileOperationResult.Error) errors++
+            }
+            
+            _uiState.update { it.copy(isLoading = false) }
+            if (errors == 0) {
+                handleOperationResult(FileOperationResult.Success, "Přejmenováno")
+            } else {
+                handleOperationResult(FileOperationResult.Error("Některé položky se nepodařilo přejmenovat"), "")
+            }
+        }
+    }
+
+    fun setClipboard(files: List<FileModel>, operation: ClipboardOperation) {
+        _clipboard.value = ClipboardState(files, operation)
     }
 
     fun cancelClipboard() {
@@ -240,13 +267,23 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         val clip = _clipboard.value ?: return
         val dest = _uiState.value.currentPath
         viewModelScope.launch {
-            val result = if (clip.operation == ClipboardOperation.COPY) {
-                fileRepository.copyFile(clip.file.path, dest)
-            } else {
-                fileRepository.moveFile(clip.file.path, dest)
+            _uiState.update { it.copy(isLoading = true) }
+            var errors = 0
+            for (file in clip.files) {
+                val result = if (clip.operation == ClipboardOperation.COPY) {
+                    fileRepository.copyFile(file.path, dest)
+                } else {
+                    fileRepository.moveFile(file.path, dest)
+                }
+                if (result is FileOperationResult.Error) errors++
             }
+            _uiState.update { it.copy(isLoading = false) }
             _clipboard.value = null
-            handleOperationResult(result, "Dokončeno")
+            if (errors == 0) {
+                handleOperationResult(FileOperationResult.Success, "Dokončeno")
+            } else {
+                handleOperationResult(FileOperationResult.Error("Operace se nezdařila u $errors položek"), "")
+            }
         }
     }
 

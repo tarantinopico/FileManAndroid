@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -76,6 +78,10 @@ fun FileExplorerScreen(
     onSelectAll: () -> Unit,
     onSearchChange: (String) -> Unit,
     onBatchDelete: () -> Unit,
+    onBatchCopy: (List<FileModel>) -> Unit,
+    onBatchMove: (List<FileModel>) -> Unit,
+    onBatchShare: (List<FileModel>) -> Unit,
+    onBatchRename: (String) -> Unit,
     onBatchZip: (String) -> Unit,
     onBatchEncrypt: (String) -> Unit,
     onDecryptFile: (FileModel, String) -> Unit,
@@ -89,6 +95,7 @@ fun FileExplorerScreen(
     var showInfoDialogFor by remember { mutableStateOf<FileModel?>(null) }
     var showZipDialog by remember { mutableStateOf(false) }
     var showEncryptDialog by remember { mutableStateOf(false) }
+    var showBulkRenameDialog by remember { mutableStateOf(false) }
     var decryptTarget by remember { mutableStateOf<FileModel?>(null) }
     
     val isMultiSelect = state.selectedFiles.isNotEmpty()
@@ -112,8 +119,14 @@ fun FileExplorerScreen(
                         IconButton(onClick = onSelectAll) {
                             Icon(Icons.Rounded.SelectAll, contentDescription = "Vybrat vše")
                         }
+                        IconButton(onClick = { onBatchCopy(state.files.filter { state.selectedFiles.contains(it.path) }) }) {
+                            Icon(Icons.Rounded.ContentCopy, contentDescription = "Kopírovat vybrané")
+                        }
+                        IconButton(onClick = { onBatchMove(state.files.filter { state.selectedFiles.contains(it.path) }) }) {
+                            Icon(Icons.Rounded.DriveFileMove, contentDescription = "Přesunout vybrané")
+                        }
                         IconButton(onClick = onBatchDelete) {
-                            Icon(Icons.Rounded.Delete, contentDescription = "Smazat vybrané")
+                            Icon(Icons.Rounded.Delete, contentDescription = "Smazat vybrané", tint = MaterialTheme.colorScheme.error)
                         }
                         Box {
                             var moreExpanded by remember { mutableStateOf(false) }
@@ -121,6 +134,11 @@ fun FileExplorerScreen(
                                 Icon(Icons.Rounded.MoreVert, contentDescription = "Více")
                             }
                             DropdownMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Hromadně přejmenovat") },
+                                    onClick = { moreExpanded = false; showBulkRenameDialog = true },
+                                    leadingIcon = { Icon(Icons.Rounded.Edit, null) }
+                                )
                                 DropdownMenuItem(
                                     text = { Text("Zabalit do ZIP") },
                                     onClick = { moreExpanded = false; showZipDialog = true },
@@ -130,6 +148,15 @@ fun FileExplorerScreen(
                                     text = { Text("Zašifrovat (AES)") },
                                     onClick = { moreExpanded = false; showEncryptDialog = true },
                                     leadingIcon = { Icon(Icons.Rounded.Lock, null) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Sdílet") },
+                                    onClick = { 
+                                        moreExpanded = false
+                                        val selectedFiles = state.files.filter { state.selectedFiles.contains(it.path) && !it.isDirectory }
+                                        if (selectedFiles.isNotEmpty()) onBatchShare(selectedFiles)
+                                    },
+                                    leadingIcon = { Icon(Icons.Rounded.Share, null) }
                                 )
                             }
                         }
@@ -333,6 +360,18 @@ fun FileExplorerScreen(
         InputDialog(title = "Zadat heslo pro šifrování", initialValue = "", isPassword = true, onConfirm = { onBatchEncrypt(it); showEncryptDialog = false }, onDismiss = { showEncryptDialog = false })
     }
     
+    if (showBulkRenameDialog) {
+        InputDialog(
+            title = "Hromadně přejmenovat", 
+            initialValue = "Novy_Nazev", 
+            onConfirm = { 
+                onBatchRename(it)
+                showBulkRenameDialog = false 
+            }, 
+            onDismiss = { showBulkRenameDialog = false }
+        )
+    }
+    
     if (decryptTarget != null) {
         InputDialog(title = "Zadat heslo pro dešifrování", initialValue = "", isPassword = true, onConfirm = { onDecryptFile(decryptTarget!!, it); decryptTarget = null }, onDismiss = { decryptTarget = null })
     }
@@ -340,18 +379,36 @@ fun FileExplorerScreen(
     if (showInfoDialogFor != null) {
         val file = showInfoDialogFor!!
         val format = remember { SimpleDateFormat("dd. MM. yyyy HH:mm:ss", Locale.getDefault()) }
+        val ext = file.name.substringAfterLast('.', "").takeIf { it != file.name }
+        
         AlertDialog(
             onDismissRequest = { showInfoDialogFor = null },
-            title = { Text("Informace", style = MaterialTheme.typography.titleLarge) },
+            icon = { Icon(Icons.Rounded.Info, contentDescription = null) },
+            title = { Text("Informace o souboru", style = MaterialTheme.typography.titleLarge) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Název: ${file.name}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Typ: ${if (file.isDirectory) "Složka" else "Soubor"}", style = MaterialTheme.typography.bodyMedium)
-                    if (!file.isDirectory) {
-                        Text("Velikost: ${formatSize(file.size)} (${file.size} bajtů)", style = MaterialTheme.typography.bodyMedium)
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    Column {
+                        Text("Název", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(file.name, style = MaterialTheme.typography.bodyLarge)
                     }
-                    Text("Upraveno: ${format.format(Date(file.lastModified))}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Cesta: ${file.path}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column {
+                        Text("Typ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(if (file.isDirectory) "Složka" else "Soubor ${ext?.let { "(.${it.uppercase()})" } ?: ""}", style = MaterialTheme.typography.bodyLarge)
+                    }
+                    if (!file.isDirectory) {
+                        Column {
+                            Text("Velikost", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Text("${formatSize(file.size)} (${file.size} bajtů)", style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    Column {
+                        Text("Naposledy upraveno", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(format.format(Date(file.lastModified)), style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Column {
+                        Text("Absolutní cesta", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(file.path, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = { showInfoDialogFor = null }) { Text("Zavřít") } },
@@ -360,7 +417,7 @@ fun FileExplorerScreen(
                 TextButton(onClick = {
                     val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Cesta", file.path))
-                    android.widget.Toast.makeText(context, "Zkopírováno", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, "Cesta zkopírována", android.widget.Toast.LENGTH_SHORT).show()
                 }) {
                     Text("Kopírovat cestu")
                 }
