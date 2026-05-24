@@ -109,6 +109,7 @@ fun TextEditorScreen(
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
@@ -228,8 +229,7 @@ fun TextEditorScreen(
         bottomBar = {
             if (editorSettings.editorToolbarEnabled && state.errorMessage == null && !state.isLoading) {
                 BottomAppBar(
-                    contentPadding = PaddingValues(horizontal = 8.dp),
-                    modifier = Modifier.imePadding()
+                    contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     val context = androidx.compose.ui.platform.LocalContext.current
                     IconButton(onClick = {
@@ -327,16 +327,10 @@ fun TextEditorScreen(
                 val verticalScrollState = rememberScrollState()
                 val horizontalScrollState = rememberScrollState()
                 val text = state.textFieldValue.text
-                
-                // Calculate current line for active background highlighting
-                val currentLineIndex = remember(state.textFieldValue.selection.start, text) {
-                    if (text.isEmpty()) 0 else text.substring(0, minOf(state.textFieldValue.selection.start, text.length)).count { it == '\n' }
-                }
 
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .imePadding()
                         .verticalScroll(verticalScrollState)
                 ) {
                     if (editorSettings.showLineNumbers) {
@@ -347,20 +341,26 @@ fun TextEditorScreen(
                                 .fillMaxHeight(),
                             horizontalAlignment = Alignment.End
                         ) {
-                            val lineCount = text.count { it == '\n' } + 1
-                            for (i in 0 until lineCount) {
-                                val isCurrentLine = i == currentLineIndex
-                                Text(
-                                    text = "${i + 1}",
-                                    color = if (isCurrentLine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    style = TextStyle(
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 14.sp,
-                                        textAlign = TextAlign.End,
-                                        fontWeight = if (isCurrentLine) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
-                                    )
-                                )
+                            val lineCount = remember(text) { text.count { it == '\n' } + 1 }
+                            val lineNumbersText = remember(lineCount) {
+                                val sb = StringBuilder()
+                                for (i in 1..lineCount) {
+                                    sb.append(i)
+                                    if (i < lineCount) sb.append("\n")
+                                }
+                                sb.toString()
                             }
+                            
+                            Text(
+                                text = lineNumbersText,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                style = TextStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.End,
+                                    lineHeight = 19.sp // Match BasicTextField line height
+                                )
+                            )
                         }
                     }
                     
@@ -380,14 +380,10 @@ fun TextEditorScreen(
                             fontSize = 14.sp
                         ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        visualTransformation = if (editorSettings.syntaxHighlightEnabled || editorSettings.activeLineHighlightEnabled) {
-                            val activeColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        visualTransformation = if (editorSettings.syntaxHighlightEnabled) {
                             SyntaxVisualTransformation(
                                 extension = langName, 
-                                findQuery = state.findQuery, 
-                                activeLineHighlightEnabled = editorSettings.activeLineHighlightEnabled, 
-                                activeLineIndex = currentLineIndex, 
-                                activeLineColor = activeColor
+                                findQuery = state.findQuery
                             )
                         } else {
                             androidx.compose.ui.text.input.VisualTransformation.None

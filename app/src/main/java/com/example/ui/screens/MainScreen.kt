@@ -275,8 +275,6 @@ fun MainScreen(
                 syntaxMappings = syntaxMappings,
                 onNavigate = { path -> viewModel.loadDirectory(path) },
                 onNavigateUp = { viewModel.navigateUp() },
-                onNavigateBack = { viewModel.navigateBack() },
-                onNavigateForward = { viewModel.navigateForward() },
                 onCreateFolder = { name -> viewModel.createFolder(name) },
                 onCreateFile = { name -> viewModel.createFile(name) },
                 onDelete = { file -> viewModel.deleteItem(file) },

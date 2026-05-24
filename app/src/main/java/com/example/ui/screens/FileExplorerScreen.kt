@@ -15,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
+import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,7 +51,7 @@ fun getIconForFile(file: FileModel): ImageVector {
         "kt", "kts", "java", "xml", "json", "py", "js", "html", "css", "cpp", "c", "h", "gradle", "sh" -> Icons.Rounded.Code
         "apk", "aab" -> Icons.Rounded.Android
         "enc" -> Icons.Rounded.Lock
-        else -> Icons.Rounded.InsertDriveFile
+        else -> Icons.AutoMirrored.Rounded.InsertDriveFile
     }
 }
 
@@ -79,8 +81,6 @@ fun FileExplorerScreen(
     syntaxMappings: List<com.example.model.SyntaxMapping>,
     onNavigate: (String) -> Unit,
     onNavigateUp: () -> Unit,
-    onNavigateBack: () -> Unit,
-    onNavigateForward: () -> Unit,
     onCreateFolder: (String) -> Unit,
     onCreateFile: (String) -> Unit,
     onDelete: (FileModel) -> Unit,
@@ -133,7 +133,6 @@ fun FileExplorerScreen(
     var showGithubRepoDialog by remember { mutableStateOf(false) }
     
     val isMultiSelect = state.selectedFiles.isNotEmpty()
-    val isSearchMode = state.searchQuery.isNotEmpty()
     val isRepo = gitState.repoStatus.isRepo
 
     var showSearch by remember { mutableStateOf(false) }
@@ -158,7 +157,7 @@ fun FileExplorerScreen(
                             Icon(Icons.Rounded.ContentCopy, contentDescription = "Kopírovat vybrané")
                         }
                         IconButton(onClick = { onBatchMove(state.files.filter { state.selectedFiles.contains(it.path) }) }) {
-                            Icon(Icons.Rounded.DriveFileMove, contentDescription = "Přesunout vybrané")
+                            Icon(Icons.AutoMirrored.Rounded.DriveFileMove, contentDescription = "Přesunout vybrané")
                         }
                         IconButton(onClick = {
                             if (appPreferences.confirmDeletions) {
@@ -301,7 +300,7 @@ fun FileExplorerScreen(
                                 DropdownMenuItem(
                                     text = { Text("Nový soubor") },
                                     onClick = { showCreateMenu = false; showCreateFileDialog = true },
-                                    leadingIcon = { Icon(Icons.Rounded.InsertDriveFile, null) }
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.InsertDriveFile, null) }
                                 )
                             }
                         }
@@ -661,15 +660,15 @@ fun FileExplorerScreen(
                 val context = androidx.compose.ui.platform.LocalContext.current
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = {
-                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Název", file.name))
+                        val clipboardMgr = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboardMgr.setPrimaryClip(android.content.ClipData.newPlainText("Název", file.name))
                         android.widget.Toast.makeText(context, "Název zkopírován", android.widget.Toast.LENGTH_SHORT).show()
                     }) {
                         Text("Kopírovat název")
                     }
                     TextButton(onClick = {
-                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Cesta", file.path))
+                        val clipboardMgr = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboardMgr.setPrimaryClip(android.content.ClipData.newPlainText("Cesta", file.path))
                         android.widget.Toast.makeText(context, "Cesta zkopírována", android.widget.Toast.LENGTH_SHORT).show()
                     }) {
                         Text("Kopírovat cestu")
@@ -912,7 +911,7 @@ fun FileListItem(
                     DropdownMenuItem(
                         text = { Text("Přesunout") },
                         onClick = { expanded = false; onMove() },
-                        leadingIcon = { Icon(Icons.Rounded.DriveFileMove, null) }
+                        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.DriveFileMove, null) }
                     )
                     DropdownMenuItem(
                         text = { Text("Informace") },
