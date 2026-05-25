@@ -90,6 +90,7 @@ fun FileExplorerScreen(
     onPaste: () -> Unit,
     onCancelClipboard: () -> Unit,
     onOpenFile: (FileModel) -> Unit,
+    onOpenExternally: (FileModel) -> Unit,
     onMenuClick: () -> Unit,
     onRemoveFavorite: (String) -> Unit,
     onSaveFavorite: (FavoriteModel) -> Unit,
@@ -489,6 +490,7 @@ fun FileExplorerScreen(
                                 onUnzip = { onUnzipFile(file) },
                                 onDecrypt = { decryptTarget = file },
                                 onEditTags = { fileToEditTags = file },
+                                onOpenExternally = { onOpenExternally(file) },
                                 onGitAdd = { onGitAdd(file) }
                             )
                         }
@@ -722,6 +724,7 @@ fun FileListItem(
     onUnzip: () -> Unit,
     onDecrypt: () -> Unit,
     onEditTags: () -> Unit,
+    onOpenExternally: () -> Unit,
     onGitAdd: () -> Unit = {},
     gitStatus: GitFileStatusType? = null
 ) {
@@ -971,6 +974,11 @@ fun FileListItem(
                         leadingIcon = { Icon(Icons.Rounded.Info, null) }
                     )
                     if (!file.isDirectory) {
+                        DropdownMenuItem(
+                            text = { Text("Otevřít v jiné aplikaci") },
+                            onClick = { expanded = false; onOpenExternally() },
+                            leadingIcon = { Icon(Icons.Rounded.OpenInNew, null) }
+                        )
                         val context = androidx.compose.ui.platform.LocalContext.current
                         DropdownMenuItem(
                             text = { Text("Sdílet") },

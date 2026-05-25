@@ -20,13 +20,20 @@ import com.example.model.AppPreferences
 import com.example.model.FavoriteModel
 import com.example.model.StorageVolumeModel
 
+import com.example.model.RemoteServerModel
+import com.example.model.ServerType
+
 @Composable
 fun DrawerContent(
     storageVolumes: List<StorageVolumeModel>,
     favorites: List<FavoriteModel>,
+    remoteServers: List<RemoteServerModel>,
     appPreferences: AppPreferences,
     onStorageVolumeClick: (StorageVolumeModel) -> Unit,
     onFavoriteClick: (FavoriteModel) -> Unit,
+    onRemoteServerClick: (RemoteServerModel) -> Unit,
+    onEditRemoteServerClick: (RemoteServerModel) -> Unit,
+    onManageRemoteServersClick: () -> Unit,
     onEditFavorite: (FavoriteModel) -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -88,6 +95,32 @@ fun DrawerContent(
                 items(if (appPreferences.showPinned) regularFavorites else favorites) { favorite ->
                     DrawerFavoriteItem(favorite, onFavoriteClick, onEditFavorite)
                 }
+            }
+            
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { onManageRemoteServersClick() }.padding(horizontal = 24.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Vzdálené servery",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Rounded.Add, contentDescription = "Přidat server", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            
+            items(remoteServers) { server ->
+                DrawerItem(
+                    title = server.name,
+                    subtitle = "${server.username}@${server.host}",
+                    icon = Icons.Rounded.Cloud,
+                    onClick = { onRemoteServerClick(server) },
+                    onLongClick = { onEditRemoteServerClick(server) }
+                )
             }
             
             item {

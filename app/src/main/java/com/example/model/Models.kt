@@ -89,6 +89,23 @@ data class EditorSettings(
     val keyboardFriendlyBehavior: Boolean = true
 )
 
+enum class ServerType {
+    FTP, SFTP
+}
+
+data class RemoteServerModel(
+    val id: String,
+    val type: ServerType,
+    val name: String,
+    val host: String,
+    val port: Int,
+    val username: String,
+    val passwordOrKeyPath: String?,
+    val remotePath: String = "/",
+    val isAvailable: Boolean = true,
+    val isConnected: Boolean = false
+)
+
 data class AppPreferences(
     val drawerEnabled: Boolean = true,
     val showFavorites: Boolean = true,

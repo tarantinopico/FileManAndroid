@@ -45,7 +45,15 @@ sealed class UiEvent {
 }
 
 class FileManagerViewModel(application: Application) : AndroidViewModel(application) {
-    private val fileRepository = FileRepository()
+    private val localFileRepository = FileRepository()
+    private val sftpRepository = com.example.repository.SftpRepository()
+    private val ftpRepository = com.example.repository.FtpRepository()
+    val remoteServersRepository = com.example.repository.RemoteServersRepository(application)
+    
+    private val virtualFileSystem = com.example.repository.VirtualFileSystem(
+        localFileRepository, sftpRepository, ftpRepository, remoteServersRepository
+    )
+    
     private val storageRepository = StorageRepository(application)
     private val settingsRepository = SettingsRepository(application)
     private val tagsRepository = TagsRepository(application)
@@ -102,7 +110,7 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
                     if (prefs.openLastLocationOnStartup && !prefs.lastOpenedLocation.isNullOrEmpty()) {
                         loadDirectory(prefs.lastOpenedLocation, addToHistory = true)
                     } else {
-                        val primary = storageVolumes.value.find { it.isPrimary }?.path ?: fileRepository.getRootPath()
+                        val primary = storageVolumes.value.find { it.isPrimary }?.path ?: localFileRepository.getRootPath()
                         loadDirectory(primary, addToHistory = true)
                     }
                 }
@@ -220,9 +228,9 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            fileRepository.listFiles(path).onSuccess { files ->
+            virtualFileSystem.listFiles(path).onSuccess { files ->
                 _currentFilesRaw = files
-                val primaryRoot = storageVolumes.value.find { it.isPrimary }?.path ?: fileRepository.getRootPath()
+                val primaryRoot = storageVolumes.value.find { it.isPrimary }?.path ?: localFileRepository.getRootPath()
                 val currentVolume = storageVolumes.value.find { path.startsWith(it.path) }
                 val rootPathForVolume = currentVolume?.path ?: primaryRoot
                 
@@ -233,7 +241,7 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
                 // save last opened location
                 settingsRepository.setLastOpenedLocation(path)
                 
-                val parentPath = if (path == rootPathForVolume) null else java.io.File(path).parent
+                val parentPath = if (path == rootPathForVolume) null else virtualFileSystem.getParentPath(path)
                 _uiState.update {
                     it.copy(
                         currentPath = path,
@@ -306,28 +314,28 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun createFolder(name: String) {
         viewModelScope.launch {
-            val result = fileRepository.createFolder(_uiState.value.currentPath, name)
+            val result = virtualFileSystem.createFolder(_uiState.value.currentPath, name)
             handleOperationResult(result, "Složka vytvořena")
         }
     }
 
     fun createFile(name: String, content: String? = null) {
         viewModelScope.launch {
-            val result = fileRepository.createFile(_uiState.value.currentPath, name, content)
+            val result = virtualFileSystem.createFile(_uiState.value.currentPath, name, content)
             handleOperationResult(result, "Soubor vytvořen")
         }
     }
 
     fun deleteItem(file: FileModel) {
         viewModelScope.launch {
-            val result = fileRepository.deleteFile(file.path)
+            val result = virtualFileSystem.deleteFile(file.path, file.isDirectory)
             handleOperationResult(result, "Smazáno")
         }
     }
 
     fun renameItem(file: FileModel, newName: String) {
         viewModelScope.launch {
-            val result = fileRepository.renameFile(file.path, newName)
+            val result = virtualFileSystem.renameFile(file.path, newName)
             handleOperationResult(result, "Přejmenováno")
         }
     }
@@ -346,7 +354,7 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
             for ((index, file) in filesToRename.withIndex()) {
                 val ext = if (file.isDirectory) "" else ".${file.name.substringAfterLast('.', "")}".takeIf { it != "." } ?: ""
                 val newName = if (filesToRename.size > 1) "${baseName}_${index + 1}$ext" else "$baseName$ext"
-                val result = fileRepository.renameFile(file.path, newName)
+                val result = virtualFileSystem.renameFile(file.path, newName)
                 if (result is FileOperationResult.Error) errors++
             }
             
@@ -371,17 +379,17 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         val clip = _clipboard.value ?: return
         val dest = _uiState.value.currentPath
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, loadingMessage = "Kopírování...") }
             var errors = 0
             for (file in clip.files) {
                 val result = if (clip.operation == ClipboardOperation.COPY) {
-                    fileRepository.copyFile(file.path, dest)
+                    virtualFileSystem.copyFile(file, dest)
                 } else {
-                    fileRepository.moveFile(file.path, dest)
+                    virtualFileSystem.moveFile(file, dest)
                 }
                 if (result is FileOperationResult.Error) errors++
             }
-            _uiState.update { it.copy(isLoading = false) }
+            _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
             _clipboard.value = null
             if (errors == 0) {
                 handleOperationResult(FileOperationResult.Success, "Dokončeno")
@@ -481,12 +489,20 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun deleteSelected() {
         val selected = _uiState.value.selectedFiles.toList()
         if (selected.isEmpty()) return
+        val currentFiles = _uiState.value.files
         clearSelection()
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, loadingMessage = "Mazání...") }
             var errors = 0
             for (path in selected) {
-                if (fileRepository.deleteFile(path) is FileOperationResult.Error) errors++
+                val file = currentFiles.find { it.path == path }
+                if (file != null) {
+                    if (virtualFileSystem.deleteFile(path, file.isDirectory) is FileOperationResult.Error) errors++
+                } else {
+                    errors++
+                }
             }
+            _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
             if (errors == 0) handleOperationResult(FileOperationResult.Success, "Smazáno")
             else handleOperationResult(FileOperationResult.Error("Některé soubory se nepodařilo smazat"), "")
         }
@@ -498,8 +514,12 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         val currentPath = _uiState.value.currentPath
         clearSelection()
         viewModelScope.launch {
+            if (currentPath.startsWith("sftp://") || currentPath.startsWith("ftp://")) {
+                handleOperationResult(FileOperationResult.Error("Zabalení je povolené jen pro lokální soubory"), "")
+                return@launch
+            }
             _uiState.update { it.copy(isLoading = true, loadingMessage = "Vytváření ZIP archivu...") }
-            val result = fileRepository.zipFiles(selected, currentPath, zipName)
+            val result = localFileRepository.zipFiles(selected, currentPath, zipName)
             _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
             handleOperationResult(result, "Zabaleno")
         }
@@ -508,8 +528,12 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun unzipFile(file: FileModel) {
         val currentPath = _uiState.value.currentPath
         viewModelScope.launch {
+            if (currentPath.startsWith("sftp://") || currentPath.startsWith("ftp://")) {
+                handleOperationResult(FileOperationResult.Error("Rozbalení je povolené jen pro lokální soubory"), "")
+                return@launch
+            }
             _uiState.update { it.copy(isLoading = true, loadingMessage = "Rozbalování ${file.name}...") }
-            val result = fileRepository.unzipFile(file.path, currentPath)
+            val result = localFileRepository.unzipFile(file.path, currentPath)
             _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
             handleOperationResult(result, "Rozbaleno")
         }
@@ -521,8 +545,12 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         val currentPath = _uiState.value.currentPath
         clearSelection()
         viewModelScope.launch {
+            if (currentPath.startsWith("sftp://") || currentPath.startsWith("ftp://")) {
+                handleOperationResult(FileOperationResult.Error("Šifrování je povolené jen pro lokální soubory"), "")
+                return@launch
+            }
             _uiState.update { it.copy(isLoading = true) }
-            val result = fileRepository.encryptFiles(selected, currentPath, password)
+            val result = localFileRepository.encryptFiles(selected, currentPath, password)
             _uiState.update { it.copy(isLoading = false) }
             handleOperationResult(result, "Zašifrováno")
         }
@@ -531,8 +559,12 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun decryptSelected(file: FileModel, password: String) {
         val currentPath = _uiState.value.currentPath
         viewModelScope.launch {
+            if (currentPath.startsWith("sftp://") || currentPath.startsWith("ftp://")) {
+                handleOperationResult(FileOperationResult.Error("Dešifrování je povolené jen pro lokální soubory"), "")
+                return@launch
+            }
             _uiState.update { it.copy(isLoading = true) }
-            val result = fileRepository.decryptFile(file.path, currentPath, password)
+            val result = localFileRepository.decryptFile(file.path, currentPath, password)
             _uiState.update { it.copy(isLoading = false) }
             handleOperationResult(result, "Dešifrováno")
         }

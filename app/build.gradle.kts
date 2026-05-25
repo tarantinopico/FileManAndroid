@@ -82,4 +82,8 @@ dependencies {
     implementation("org.eclipse.jgit:org.eclipse.jgit:6.8.0.202311291450-r")
     // Android Security library for encrypted storage of tokens
     implementation("androidx.security:security-crypto-ktx:1.1.0-alpha06")
+    
+    // SFTP and FTP
+    implementation("com.jcraft:jsch:0.1.55")
+    implementation("commons-net:commons-net:3.10.0")
 }

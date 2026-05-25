@@ -42,11 +42,15 @@ fun MainScreen(
     val syntaxMappings by viewModel.syntaxMappings.collectAsStateWithLifecycle(initialValue = emptyList())
     val fileSettings by viewModel.fileSettings.collectAsStateWithLifecycle()
     val appPreferences by viewModel.appPreferences.collectAsStateWithLifecycle()
+    val remoteServers by viewModel.remoteServersRepository.servers.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    
+    var showAddRemoteServerDialog by remember { mutableStateOf<com.example.model.RemoteServerModel?>(null) }
+    var isCreatingRemoteServer by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.uiEvents.collect { event ->
@@ -59,6 +63,30 @@ fun MainScreen(
                 }
             }
         }
+    }
+
+    if (isCreatingRemoteServer || showAddRemoteServerDialog != null) {
+        RemoteServerDialog(
+            initialServer = showAddRemoteServerDialog,
+            onConfirm = { server ->
+                if (server.id.isEmpty()) {
+                    viewModel.remoteServersRepository.addServer(server)
+                } else {
+                    viewModel.remoteServersRepository.updateServer(server)
+                }
+                isCreatingRemoteServer = false
+                showAddRemoteServerDialog = null
+            },
+            onDismiss = {
+                isCreatingRemoteServer = false
+                showAddRemoteServerDialog = null
+            },
+            onDelete = { id ->
+                viewModel.remoteServersRepository.removeServer(id)
+                isCreatingRemoteServer = false
+                showAddRemoteServerDialog = null
+            }
+        )
     }
     
     LaunchedEffect(Unit) {
@@ -199,6 +227,31 @@ fun MainScreen(
             }
         }
 
+        val onOpenExternally: (FileModel) -> Unit = { file ->
+            try {
+                if (file.path.startsWith("sftp://") || file.path.startsWith("ftp://")) {
+                    scope.launch { snackbarHostState.showSnackbar("Vzdálené soubory nejprve zkopírujte lokálně.") }
+                } else {
+                    val uri: Uri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.provider",
+                        java.io.File(file.path)
+                    )
+                    val extension = file.name.substringAfterLast('.', "").lowercase()
+                    val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "*/*"
+                    
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, mimeType)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    val chooser = Intent.createChooser(intent, "Otevřít v jiné aplikaci")
+                    context.startActivity(chooser)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                scope.launch { snackbarHostState.showSnackbar("Nelze otevřít soubor.") }
+            }
+        }
         val onOpenFile: (FileModel) -> Unit = { file ->
             try {
                 val uri: Uri = FileProvider.getUriForFile(
@@ -247,6 +300,7 @@ fun MainScreen(
                     DrawerContent(
                         storageVolumes = storageVolumes,
                         favorites = favorites,
+                        remoteServers = remoteServers,
                         appPreferences = appPreferences,
                         onStorageVolumeClick = { volume ->
                             scope.launch { drawerState.close() }
@@ -255,6 +309,18 @@ fun MainScreen(
                         onFavoriteClick = { favorite ->
                             scope.launch { drawerState.close() }
                             viewModel.loadDirectory(favorite.path)
+                        },
+                        onRemoteServerClick = { server ->
+                            scope.launch { drawerState.close() }
+                            viewModel.loadDirectory(if (server.type == com.example.model.ServerType.SFTP) "sftp://${server.id}${if (server.remotePath.isEmpty()) "/" else server.remotePath}" else "ftp://${server.id}${if (server.remotePath.isEmpty()) "/" else server.remotePath}")
+                        },
+                        onEditRemoteServerClick = { server ->
+                            scope.launch { drawerState.close() }
+                            showAddRemoteServerDialog = server
+                        },
+                        onManageRemoteServersClick = {
+                            scope.launch { drawerState.close() }
+                            isCreatingRemoteServer = true
                         },
                         onEditFavorite = { favorite ->
                             scope.launch { drawerState.close() }
@@ -287,6 +353,7 @@ fun MainScreen(
                 onPaste = { viewModel.pasteFromClipboard() },
                 onCancelClipboard = { viewModel.cancelClipboard() },
                 onOpenFile = onOpenFile,
+                onOpenExternally = onOpenExternally,
                 onMenuClick = { scope.launch { drawerState.open() } },
                 onRemoveFavorite = { path -> viewModel.removeFavorite(path) },
                 onSaveFavorite = { favorite -> viewModel.saveFavorite(favorite) },
