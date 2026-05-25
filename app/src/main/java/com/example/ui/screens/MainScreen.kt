@@ -30,7 +30,8 @@ fun MainScreen(
     gitViewModel: GitViewModel,
     onNavigateToSettings: () -> Unit,
     onNavigateToEditor: (String, String) -> Unit,
-    onNavigateToImage: (String, String) -> Unit
+    onNavigateToImage: (String, String) -> Unit,
+    onNavigateToPdf: (String, String) -> Unit
 ) {
     val hasPermission by viewModel.hasPermission.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -215,6 +216,8 @@ fun MainScreen(
                 
                 if (mimeType.startsWith("image/") || extension in imageExtensions) {
                     onNavigateToImage(file.path, file.name)
+                } else if (extension == "pdf") {
+                    onNavigateToPdf(file.path, file.name)
                 } else if (mimeType.startsWith("text/") || extension in textExtensions || isKnownTextExtension) {
                     onNavigateToEditor(file.path, file.name)
                 } else {
@@ -321,7 +324,12 @@ fun MainScreen(
                 onGitPull = { gitViewModel.pull(uiState.currentPath) },
                 onGitSetRemote = { remote -> gitViewModel.setRemote(uiState.currentPath, remote) },
                 onGitCreateGithubRepo = { name, isPrivate -> gitViewModel.createAndLinkGithubRepo(uiState.currentPath, name, isPrivate) },
-                snackbarHostState = snackbarHostState
+                snackbarHostState = snackbarHostState,
+                availableTags = viewModel.availableTags.collectAsStateWithLifecycle(initialValue = emptyList()).value,
+                onAddTagToFile = { path, tag -> viewModel.addTagToFile(path, tag) },
+                onRemoveTagFromFile = { path, id -> viewModel.removeTagFromFile(path, id) },
+                onCreateTag = { name, color -> viewModel.addAvailableTag(name, color) },
+                onDeleteTag = { id -> viewModel.deleteAvailableTag(id) }
             )
         }
     } else {

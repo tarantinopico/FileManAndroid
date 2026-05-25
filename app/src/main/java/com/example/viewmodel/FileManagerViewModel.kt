@@ -11,6 +11,7 @@ import com.example.model.ThemeMode
 import com.example.repository.FileRepository
 import com.example.repository.SettingsRepository
 import com.example.repository.StorageRepository
+import com.example.repository.TagsRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +31,7 @@ data class FileManagerState(
     val files: List<FileModel> = emptyList(),
     val breadcrumbs: List<BreadcrumbModel> = emptyList(),
     val isLoading: Boolean = false,
+    val loadingMessage: String? = null,
     val errorMessage: String? = null,
     val selectedFiles: Set<String> = emptySet(),
     val searchQuery: String = "",
@@ -46,6 +48,7 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     private val fileRepository = FileRepository()
     private val storageRepository = StorageRepository(application)
     private val settingsRepository = SettingsRepository(application)
+    private val tagsRepository = TagsRepository(application)
 
     private val _uiState = MutableStateFlow(FileManagerState())
     val uiState = _uiState.asStateFlow()
@@ -76,6 +79,11 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         started = kotlinx.coroutines.flow.SharingStarted.Eagerly,
         initialValue = com.example.model.AppPreferences()
     )
+    
+    val availableTags = tagsRepository.availableTags
+    val fileTags = tagsRepository.fileTags
+
+    private var _currentFilesRaw = emptyList<FileModel>()
 
     init {
         checkPermission()
@@ -96,6 +104,17 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
                     } else {
                         val primary = storageVolumes.value.find { it.isPrimary }?.path ?: fileRepository.getRootPath()
                         loadDirectory(primary, addToHistory = true)
+                    }
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            tagsRepository.fileTags.collect { tagsMap ->
+                val currentFiles = _currentFilesRaw
+                if (currentFiles.isNotEmpty()) {
+                    _uiState.update { state ->
+                        state.copy(files = applyFileSettings(currentFiles).map { it.copy(tags = tagsMap[it.path] ?: emptyList()) })
                     }
                 }
             }
@@ -202,11 +221,14 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             fileRepository.listFiles(path).onSuccess { files ->
+                _currentFilesRaw = files
                 val primaryRoot = storageVolumes.value.find { it.isPrimary }?.path ?: fileRepository.getRootPath()
                 val currentVolume = storageVolumes.value.find { path.startsWith(it.path) }
                 val rootPathForVolume = currentVolume?.path ?: primaryRoot
                 
                 val filteredAndSorted = applyFileSettings(files)
+                val tagsMap = tagsRepository.fileTags.value
+                val finalizedFiles = filteredAndSorted.map { it.copy(tags = tagsMap[it.path] ?: emptyList()) }
                 
                 // save last opened location
                 settingsRepository.setLastOpenedLocation(path)
@@ -216,7 +238,7 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
                     it.copy(
                         currentPath = path,
                         parentPath = parentPath,
-                        files = filteredAndSorted,
+                        files = finalizedFiles,
                         breadcrumbs = buildBreadcrumbs(rootPathForVolume, path, currentVolume?.name ?: "Domů"),
                         isLoading = false,
                         historyBackStack = backStack,
@@ -369,6 +391,36 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun addTagToFile(path: String, tag: com.example.model.TagModel) {
+        viewModelScope.launch {
+            tagsRepository.addTagToFile(path, tag)
+        }
+    }
+
+    fun removeTagFromFile(path: String, tagId: String) {
+        viewModelScope.launch {
+            tagsRepository.removeTagFromFile(path, tagId)
+        }
+    }
+
+    fun addAvailableTag(name: String, colorArgb: Int) {
+        viewModelScope.launch {
+            tagsRepository.addAvailableTag(name, colorArgb)
+        }
+    }
+
+    fun updateAvailableTag(tag: com.example.model.TagModel) {
+        viewModelScope.launch {
+            tagsRepository.updateAvailableTag(tag)
+        }
+    }
+
+    fun deleteAvailableTag(tagId: String) {
+        viewModelScope.launch {
+            tagsRepository.deleteAvailableTag(tagId)
+        }
+    }
+
     private suspend fun handleOperationResult(result: FileOperationResult, successMsg: String) {
         when (result) {
             is FileOperationResult.Success -> {
@@ -446,9 +498,9 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
         val currentPath = _uiState.value.currentPath
         clearSelection()
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, loadingMessage = "Vytváření ZIP archivu...") }
             val result = fileRepository.zipFiles(selected, currentPath, zipName)
-            _uiState.update { it.copy(isLoading = false) }
+            _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
             handleOperationResult(result, "Zabaleno")
         }
     }
@@ -456,9 +508,9 @@ class FileManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun unzipFile(file: FileModel) {
         val currentPath = _uiState.value.currentPath
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, loadingMessage = "Rozbalování ${file.name}...") }
             val result = fileRepository.unzipFile(file.path, currentPath)
-            _uiState.update { it.copy(isLoading = false) }
+            _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
             handleOperationResult(result, "Rozbaleno")
         }
     }

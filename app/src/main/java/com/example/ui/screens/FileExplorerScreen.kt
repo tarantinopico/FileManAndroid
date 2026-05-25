@@ -115,6 +115,11 @@ fun FileExplorerScreen(
     onGitSetRemote: (String) -> Unit,
     onGitCreateGithubRepo: (String, Boolean) -> Unit,
     snackbarHostState: SnackbarHostState,
+    availableTags: List<com.example.model.TagModel>,
+    onAddTagToFile: (String, com.example.model.TagModel) -> Unit,
+    onRemoveTagFromFile: (String, String) -> Unit,
+    onCreateTag: (String, Int) -> Unit,
+    onDeleteTag: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showCreateFolderDialog by remember { mutableStateOf(false) }
@@ -127,6 +132,7 @@ fun FileExplorerScreen(
     var showFavoriteDialogFor by remember { mutableStateOf<FileModel?>(null) }
     var decryptTarget by remember { mutableStateOf<FileModel?>(null) }
     var deleteTarget by remember { mutableStateOf<FileModel?>(null) }
+    var fileToEditTags by remember { mutableStateOf<FileModel?>(null) }
     var batchDeleteConfirm by remember { mutableStateOf(false) }
     var showCommitDialog by remember { mutableStateOf(false) }
     var showSetRemoteDialog by remember { mutableStateOf(false) }
@@ -482,6 +488,7 @@ fun FileExplorerScreen(
                                 onShowInfo = { showInfoDialogFor = file },
                                 onUnzip = { onUnzipFile(file) },
                                 onDecrypt = { decryptTarget = file },
+                                onEditTags = { fileToEditTags = file },
                                 onGitAdd = { onGitAdd(file) }
                             )
                         }
@@ -495,8 +502,9 @@ fun FileExplorerScreen(
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter))
                 }
                 
+                
                 androidx.compose.animation.AnimatedVisibility(
-                    visible = gitState.isActionLoading,
+                    visible = gitState.isActionLoading || state.loadingMessage != null,
                     enter = androidx.compose.animation.fadeIn(),
                     exit = androidx.compose.animation.fadeOut(),
                     modifier = Modifier.align(Alignment.Center)
@@ -510,7 +518,8 @@ fun FileExplorerScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("Načítání (Git)...", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                            val message = state.loadingMessage ?: if (gitState.isActionLoading) "Načítání (Git)..." else "Pracuji..."
+                            Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
@@ -526,6 +535,18 @@ fun FileExplorerScreen(
         InputDialog(title = "Nový soubor", initialValue = "", onConfirm = { onCreateFile(it); showCreateFileDialog = false }, onDismiss = { showCreateFileDialog = false })
     }
     
+    if (fileToEditTags != null) {
+        TagsDialog(
+            file = fileToEditTags!!,
+            availableTags = availableTags,
+            onDismiss = { fileToEditTags = null },
+            onAddTagToFile = { tag -> onAddTagToFile(fileToEditTags!!.path, tag) },
+            onRemoveTagFromFile = { tag -> onRemoveTagFromFile(fileToEditTags!!.path, tag.id) },
+            onCreateTag = { name, color -> onCreateTag(name, color) },
+            onDeleteTag = { tag -> onDeleteTag(tag.id) }
+        )
+    }
+
     if (showCommitDialog) {
         InputDialog(title = "Git Commit", initialValue = "", onConfirm = { onGitCommit(it); showCommitDialog = false }, onDismiss = { showCommitDialog = false })
     }
@@ -700,6 +721,7 @@ fun FileListItem(
     onShowInfo: () -> Unit,
     onUnzip: () -> Unit,
     onDecrypt: () -> Unit,
+    onEditTags: () -> Unit,
     onGitAdd: () -> Unit = {},
     gitStatus: GitFileStatusType? = null
 ) {
@@ -858,6 +880,31 @@ fun FileListItem(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            
+            if (file.tags.isNotEmpty()) {
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    file.tags.forEach { tag ->
+                        Box(
+                            modifier = Modifier
+                                .background(Color(tag.colorArgb).copy(alpha = 0.2f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = tag.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(tag.colorArgb).copy(alpha = 0.9f),
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
         }
         
         if (!isMultiSelectMode) {
@@ -883,6 +930,11 @@ fun FileListItem(
                         leadingIcon = {
                             Icon(if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, contentDescription = null)
                         }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Správa štítků") },
+                        onClick = { expanded = false; onEditTags() },
+                        leadingIcon = { Icon(Icons.Rounded.Label, null) }
                     )
                     if (file.name.endsWith(".zip", ignoreCase = true)) {
                         DropdownMenuItem(

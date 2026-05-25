@@ -60,6 +60,11 @@ fun AppNavigation(viewModel: FileManagerViewModel) {
                     val encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
                     val encodedName = URLEncoder.encode(name, StandardCharsets.UTF_8.toString())
                     navController.navigate("image/$encodedPath/$encodedName")
+                },
+                onNavigateToPdf = { path, name ->
+                    val encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
+                    val encodedName = URLEncoder.encode(name, StandardCharsets.UTF_8.toString())
+                    navController.navigate("pdf/$encodedPath/$encodedName")
                 }
             )
         }
@@ -105,6 +110,21 @@ fun AppNavigation(viewModel: FileManagerViewModel) {
             ImageViewerScreen(
                 imagePath = path,
                 imageName = name,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = "pdf/{path}/{name}",
+            arguments = listOf(
+                navArgument("path") { type = NavType.StringType },
+                navArgument("name") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val path = URLDecoder.decode(backStackEntry.arguments?.getString("path") ?: "", StandardCharsets.UTF_8.toString())
+            val name = URLDecoder.decode(backStackEntry.arguments?.getString("name") ?: "", StandardCharsets.UTF_8.toString())
+            PdfViewerScreen(
+                pdfPath = path,
+                pdfName = name,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

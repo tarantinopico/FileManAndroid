@@ -5,7 +5,14 @@ data class FileModel(
     val path: String,
     val isDirectory: Boolean,
     val size: Long,
-    val lastModified: Long
+    val lastModified: Long,
+    val tags: List<TagModel> = emptyList()
+)
+
+data class TagModel(
+    val id: String,
+    val name: String,
+    val colorArgb: Int
 )
 
 data class BreadcrumbModel(
