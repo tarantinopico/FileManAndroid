@@ -15,6 +15,7 @@ import com.example.viewmodel.FileManagerViewModel
 
 class MainActivity : ComponentActivity() {
     private val viewModel: FileManagerViewModel by viewModels()
+    private val editorViewModel: com.example.viewmodel.TextEditorViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,19 +23,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             val themePreference = viewModel.themePreference.collectAsState(initial = com.example.model.ThemeMode.SYSTEM).value
             val densityPreference = viewModel.densityPreference.collectAsState(initial = com.example.model.UiDensity.NORMAL).value
+            val appPrefs = viewModel.appPreferences.collectAsState().value
             
-            val isDarkTheme = when (themePreference) {
-                com.example.model.ThemeMode.LIGHT -> false
-                com.example.model.ThemeMode.DARK -> true
-                com.example.model.ThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
-            }
-
-            FileManagerTheme(darkTheme = isDarkTheme, density = densityPreference) {
+            FileManagerTheme(themeMode = themePreference, density = densityPreference, appPrefs = appPrefs) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation(viewModel)
+                    AppNavigation(viewModel, editorViewModel)
                 }
             }
         }

@@ -116,7 +116,7 @@ fun TextEditorScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            text = state.name + if (state.hasUnsavedChanges) " *" else "",
+                            text = if (state.path.isEmpty()) "Textový Editor" else state.name + if (state.hasUnsavedChanges) " *" else "",
                             maxLines = 1,
                             style = MaterialTheme.typography.titleMedium,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -157,10 +157,53 @@ fun TextEditorScreen(
                                         viewModel.setGoToLineDialogVisible(true)
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Zavřít ostatní taby") },
+                                    onClick = {
+                                        expandedMenu = false
+                                        val activeIdx = viewModel.activeTabIndex.value
+                                        if (activeIdx >= 0) viewModel.closeOtherTabs(activeIdx)
+                                    }
+                                )
                             }
                         }
                     }
                 )
+                val tabs = viewModel.tabs.collectAsStateWithLifecycle().value
+                val activeIdx = viewModel.activeTabIndex.collectAsStateWithLifecycle().value
+                if (tabs.isNotEmpty()) {
+                    ScrollableTabRow(
+                        selectedTabIndex = activeIdx.coerceAtLeast(0).coerceAtMost(tabs.size - 1),
+                        edgePadding = 8.dp,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        divider = {}
+                    ) {
+                        tabs.forEachIndexed { index, tab ->
+                            val isActive = index == activeIdx
+                            Tab(
+                                selected = isActive,
+                                onClick = { viewModel.switchToTab(index) },
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = tab.name + if (tab.hasUnsavedChanges) " *" else "",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        IconButton(
+                                            onClick = { viewModel.closeTab(index) },
+                                            modifier = Modifier.size(16.dp)
+                                        ) {
+                                            Icon(Icons.Rounded.Close, "Zavřít", modifier = Modifier.size(14.dp))
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+                
                 if (state.showFindReplace) {
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -279,7 +322,30 @@ fun TextEditorScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
-            if (state.isLoading) {
+            if (state.path.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Rounded.Description,
+                        contentDescription = "Editor",
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Žádný soubor není otevřen",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(onClick = { onNavigateBack() }) {
+                        Text("Zpět k souborům")
+                    }
+                }
+            } else if (state.isLoading) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,

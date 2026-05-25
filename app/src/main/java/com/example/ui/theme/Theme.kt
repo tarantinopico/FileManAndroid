@@ -70,20 +70,58 @@ private val DarkColors = darkColorScheme(
     surfaceContainerLowest = md_theme_dark_background
 )
 
+private val TokyoNightColors = darkColorScheme(
+    primary = tokyo_night_primary,
+    onPrimary = tokyo_night_onPrimary,
+    primaryContainer = tokyo_night_primaryContainer,
+    onPrimaryContainer = tokyo_night_onPrimaryContainer,
+    background = tokyo_night_background,
+    onBackground = tokyo_night_onBackground,
+    surface = tokyo_night_surface,
+    onSurface = tokyo_night_onSurface,
+    surfaceVariant = tokyo_night_surfaceVariant,
+    onSurfaceVariant = tokyo_night_onSurfaceVariant,
+    surfaceContainer = tokyo_night_surface,
+    surfaceContainerHigh = tokyo_night_surface,
+    surfaceContainerHighest = tokyo_night_surface,
+    surfaceContainerLow = tokyo_night_background,
+    surfaceContainerLowest = tokyo_night_background
+)
+
 @Composable
 fun FileManagerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: com.example.model.ThemeMode = com.example.model.ThemeMode.SYSTEM,
     dynamicColor: Boolean = true,
     density: UiDensity = UiDensity.NORMAL,
+    appPrefs: com.example.model.AppPreferences = com.example.model.AppPreferences(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S -> {
+    val darkTheme = when (themeMode) {
+        com.example.model.ThemeMode.LIGHT -> false
+        com.example.model.ThemeMode.DARK -> true
+        com.example.model.ThemeMode.TOKYO_NIGHT -> true
+        com.example.model.ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    
+    val baseColorScheme = when {
+        themeMode == com.example.model.ThemeMode.TOKYO_NIGHT -> TokyoNightColors
+        dynamicColor && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S && themeMode != com.example.model.ThemeMode.TOKYO_NIGHT -> {
             val context = androidx.compose.ui.platform.LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> DarkColors
         else -> LightColors
+    }
+    
+    val colorScheme = if (appPrefs.primaryColorArgb != null) {
+        val customColor = androidx.compose.ui.graphics.Color(appPrefs.primaryColorArgb)
+        baseColorScheme.copy(
+            primary = customColor,
+            primaryContainer = customColor.copy(alpha = 0.2f),
+            onPrimaryContainer = customColor
+        )
+    } else {
+        baseColorScheme
     }
     
     val view = LocalView.current
@@ -95,20 +133,29 @@ fun FileManagerTheme(
         }
     }
     
-    val appDimens = when (density) {
+    val baseAppDimens = when (density) {
         UiDensity.COMPACT -> AppDimens(paddingSmall = 2.dp, paddingMedium = 4.dp, paddingLarge = 8.dp, iconSize = 20.dp, listItemHeight = 40.dp)
         UiDensity.NORMAL -> AppDimens(paddingSmall = 4.dp, paddingMedium = 8.dp, paddingLarge = 16.dp, iconSize = 24.dp, listItemHeight = 56.dp)
         UiDensity.LARGE -> AppDimens(paddingSmall = 6.dp, paddingMedium = 12.dp, paddingLarge = 24.dp, iconSize = 32.dp, listItemHeight = 64.dp)
         UiDensity.EXTRA_LARGE -> AppDimens(paddingSmall = 8.dp, paddingMedium = 16.dp, paddingLarge = 32.dp, iconSize = 40.dp, listItemHeight = 72.dp)
     }
+    
+    val appDimens = baseAppDimens.copy(
+        paddingSmall = baseAppDimens.paddingSmall * appPrefs.spacingScale,
+        paddingMedium = baseAppDimens.paddingMedium * appPrefs.spacingScale,
+        paddingLarge = baseAppDimens.paddingLarge * appPrefs.spacingScale,
+        iconSize = appPrefs.iconSizeDp.dp,
+        listItemHeight = appPrefs.listRowHeightDp.dp
+    )
 
     val baseTypography = androidx.compose.material3.Typography()
-    val textScale = when (density) {
+    val baseTextScale = when (density) {
         UiDensity.COMPACT -> 0.85f
         UiDensity.NORMAL -> 1.0f
         UiDensity.LARGE -> 1.25f
         UiDensity.EXTRA_LARGE -> 1.5f
     }
+    val textScale = baseTextScale * appPrefs.textScale
     val typography = androidx.compose.material3.Typography(
         displayLarge = baseTypography.displayLarge.copy(fontSize = baseTypography.displayLarge.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, letterSpacing = (-0.5).dp.value.sp),
         displayMedium = baseTypography.displayMedium.copy(fontSize = baseTypography.displayMedium.fontSize * textScale, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, letterSpacing = (-0.5).dp.value.sp),

@@ -80,11 +80,22 @@ class SettingsRepository(private val context: Context) {
     private val APP_DETAIL_PANELS = booleanPreferencesKey("app_detail_panels")
     private val APP_SHOW_FREE_SPACE = booleanPreferencesKey("app_show_free_space")
     private val APP_COMPACT_LIST = booleanPreferencesKey("app_compact_list")
+    
+    // Customization profiles
+    private val APP_DRAWER_WIDTH = androidx.datastore.preferences.core.intPreferencesKey("app_drawer_width")
+    private val APP_LIST_ROW_HEIGHT = androidx.datastore.preferences.core.intPreferencesKey("app_list_row_height")
+    private val APP_ICON_SIZE = androidx.datastore.preferences.core.intPreferencesKey("app_icon_size")
+    private val APP_SPACING_SCALE = androidx.datastore.preferences.core.floatPreferencesKey("app_spacing_scale")
+    private val APP_TEXT_SCALE = androidx.datastore.preferences.core.floatPreferencesKey("app_text_scale")
+    private val APP_PRIMARY_COLOR = androidx.datastore.preferences.core.intPreferencesKey("app_primary_color")
+    private val APP_OPEN_TABS = stringSetPreferencesKey("app_open_tabs")
+    private val APP_ACTIVE_TAB = stringPreferencesKey("app_active_tab")
 
     val themePreference: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         when (prefs[THEME_KEY]) {
             ThemeMode.LIGHT.name -> ThemeMode.LIGHT
             ThemeMode.DARK.name -> ThemeMode.DARK
+            ThemeMode.TOKYO_NIGHT.name -> ThemeMode.TOKYO_NIGHT
             else -> ThemeMode.SYSTEM
         }
     }
@@ -267,7 +278,15 @@ class SettingsRepository(private val context: Context) {
             multiSelectEnabled = prefs[APP_MULTI_SELECT] ?: true,
             detailPanelsEnabled = prefs[APP_DETAIL_PANELS] ?: true,
             showFreeSpace = prefs[APP_SHOW_FREE_SPACE] ?: true,
-            compactListMode = prefs[APP_COMPACT_LIST] ?: false
+            compactListMode = prefs[APP_COMPACT_LIST] ?: false,
+            drawerWidthDp = prefs[APP_DRAWER_WIDTH] ?: 300,
+            listRowHeightDp = prefs[APP_LIST_ROW_HEIGHT] ?: 64,
+            iconSizeDp = prefs[APP_ICON_SIZE] ?: 24,
+            spacingScale = prefs[APP_SPACING_SCALE] ?: 1.0f,
+            textScale = prefs[APP_TEXT_SCALE] ?: 1.0f,
+            primaryColorArgb = prefs[APP_PRIMARY_COLOR],
+            openEditorTabs = prefs[APP_OPEN_TABS]?.toList() ?: emptyList(),
+            activeEditorTab = prefs[APP_ACTIVE_TAB]
         )
     }
 
@@ -287,6 +306,15 @@ class SettingsRepository(private val context: Context) {
             prefs[APP_DETAIL_PANELS] = preferences.detailPanelsEnabled
             prefs[APP_SHOW_FREE_SPACE] = preferences.showFreeSpace
             prefs[APP_COMPACT_LIST] = preferences.compactListMode
+            
+            prefs[APP_DRAWER_WIDTH] = preferences.drawerWidthDp
+            prefs[APP_LIST_ROW_HEIGHT] = preferences.listRowHeightDp
+            prefs[APP_ICON_SIZE] = preferences.iconSizeDp
+            prefs[APP_SPACING_SCALE] = preferences.spacingScale
+            prefs[APP_TEXT_SCALE] = preferences.textScale
+            preferences.primaryColorArgb?.let { prefs[APP_PRIMARY_COLOR] = it } ?: prefs.remove(APP_PRIMARY_COLOR)
+            prefs[APP_OPEN_TABS] = preferences.openEditorTabs.toSet()
+            preferences.activeEditorTab?.let { prefs[APP_ACTIVE_TAB] = it } ?: prefs.remove(APP_ACTIVE_TAB)
         }
     }
 

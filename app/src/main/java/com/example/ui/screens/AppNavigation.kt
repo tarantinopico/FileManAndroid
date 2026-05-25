@@ -35,8 +35,12 @@ import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.launch
 
 @Composable
-fun AppNavigation(viewModel: FileManagerViewModel) {
+fun AppNavigation(
+    viewModel: com.example.viewmodel.FileManagerViewModel,
+    editorViewModel: com.example.viewmodel.TextEditorViewModel
+) {
     val navController = rememberNavController()
+
     NavHost(
         navController = navController, 
         startDestination = "main",
@@ -52,9 +56,10 @@ fun AppNavigation(viewModel: FileManagerViewModel) {
                 gitViewModel = gitViewModel,
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToEditor = { path, name ->
-                    val encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
-                    val encodedName = URLEncoder.encode(name, StandardCharsets.UTF_8.toString())
-                    navController.navigate("editor/$encodedPath/$encodedName")
+                    editorViewModel.openFileTab(path, name)
+                    if (navController.currentDestination?.route != "editor") {
+                        navController.navigate("editor")
+                    }
                 },
                 onNavigateToImage = { path, name ->
                     val encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
@@ -80,19 +85,7 @@ fun AppNavigation(viewModel: FileManagerViewModel) {
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable(
-            route = "editor/{path}/{name}",
-            arguments = listOf(
-                navArgument("path") { type = NavType.StringType },
-                navArgument("name") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val path = URLDecoder.decode(backStackEntry.arguments?.getString("path") ?: "", StandardCharsets.UTF_8.toString())
-            val name = URLDecoder.decode(backStackEntry.arguments?.getString("name") ?: "", StandardCharsets.UTF_8.toString())
-            val editorViewModel: TextEditorViewModel = viewModel()
-            LaunchedEffect(path, name) {
-                editorViewModel.loadFile(path, name)
-            }
+        composable("editor") {
             TextEditorScreen(
                 viewModel = editorViewModel,
                 onNavigateBack = { navController.popBackStack() }

@@ -605,6 +605,7 @@ private fun getThemeLabel(mode: ThemeMode): String {
         ThemeMode.SYSTEM -> "Výchozí nastavení systému"
         ThemeMode.LIGHT -> "Světlý motiv"
         ThemeMode.DARK -> "Tmavý motiv"
+        ThemeMode.TOKYO_NIGHT -> "Tokyo Night"
     }
 }
 

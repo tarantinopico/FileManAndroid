@@ -48,7 +48,7 @@ data class FavoriteModel(
 )
 
 enum class ThemeMode {
-    SYSTEM, LIGHT, DARK
+    SYSTEM, LIGHT, DARK, TOKYO_NIGHT
 }
 
 enum class UiDensity {
@@ -89,6 +89,14 @@ data class EditorSettings(
     val keyboardFriendlyBehavior: Boolean = true
 )
 
+data class EditorTabModel(
+    val path: String,
+    val name: String,
+    val isModified: Boolean = false,
+    val isActive: Boolean = false,
+    val index: Int = 0
+)
+
 enum class ServerType {
     FTP, SFTP
 }
@@ -120,7 +128,16 @@ data class AppPreferences(
     val multiSelectEnabled: Boolean = true,
     val detailPanelsEnabled: Boolean = true,
     val showFreeSpace: Boolean = true,
-    val compactListMode: Boolean = false
+    val compactListMode: Boolean = false,
+    // Customization profiles
+    val drawerWidthDp: Int = 300,
+    val listRowHeightDp: Int = 64,
+    val iconSizeDp: Int = 24,
+    val spacingScale: Float = 1.0f,
+    val textScale: Float = 1.0f,
+    val primaryColorArgb: Int? = null,
+    val openEditorTabs: List<String> = emptyList(), // Store paths of open tabs
+    val activeEditorTab: String? = null
 )
 
 enum class GitFileStatusType {
