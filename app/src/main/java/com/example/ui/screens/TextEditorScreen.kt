@@ -278,7 +278,7 @@ fun TextEditorScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(modifier = Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
             if (state.isLoading) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -327,6 +327,12 @@ fun TextEditorScreen(
                 val verticalScrollState = rememberScrollState()
                 val horizontalScrollState = rememberScrollState()
                 val text = state.textFieldValue.text
+                
+                // Track active line
+                val activeLineIndex = remember(state.textFieldValue.selection.start, text) {
+                    val start = state.textFieldValue.selection.start.coerceIn(0, text.length)
+                    text.substring(0, start).count { it == '\n' }
+                }
 
                 Row(
                     modifier = Modifier
@@ -373,20 +379,28 @@ fun TextEditorScreen(
                         modifier = Modifier
                             .weight(1f)
                             .let { if (editorSettings.wordWrap) it else it.horizontalScroll(horizontalScrollState) }
-                            .padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 64.dp),
+                            .padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 120.dp), // Extra bottom padding so it never hides behind navigation/FABs
                         textStyle = TextStyle(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp
+                            fontSize = 14.sp,
+                            lineHeight = 19.sp
                         ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         visualTransformation = if (editorSettings.syntaxHighlightEnabled) {
                             SyntaxVisualTransformation(
                                 extension = langName, 
-                                findQuery = state.findQuery
+                                findQuery = state.findQuery,
+                                activeLineHighlightEnabled = true,
+                                activeLineIndex = activeLineIndex
                             )
                         } else {
-                            androidx.compose.ui.text.input.VisualTransformation.None
+                            SyntaxVisualTransformation(
+                                extension = langName, 
+                                findQuery = state.findQuery,
+                                activeLineHighlightEnabled = true,
+                                activeLineIndex = activeLineIndex
+                            ) // Even if disabled, use this to keep active line and find query highlight
                         }
                     )
                 }
